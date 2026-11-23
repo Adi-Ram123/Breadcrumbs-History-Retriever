@@ -1,0 +1,9 @@
+# Python and notebooks
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+
+# Models: downloaded weights, checkpoints, and trained models are too large for git
+models/*
+!models/.gitkeep
