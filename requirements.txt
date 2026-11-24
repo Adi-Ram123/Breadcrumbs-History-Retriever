@@ -1,0 +1,12 @@
+bm25s
+ipykernel
+matplotlib
+mlx-lm>=0.32.2
+numpy
+pandas
+pyarrow
+PyStemmer
+requests
+scikit-learn
+sentence-transformers[train]
+tqdm

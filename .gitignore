@@ -7,3 +7,6 @@ __pycache__/
 # Models: downloaded weights, checkpoints, and trained models are too large for git
 models/*
 !models/.gitkeep
+
+# Raw downloads (~9 GB)
+data/raw/
