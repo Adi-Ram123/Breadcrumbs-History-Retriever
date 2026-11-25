@@ -6,7 +6,7 @@ Browser history search matches the literal words typed against page titles and U
 
 The project runs locally in Jupyter notebooks in VS Code on an Apple Silicon Mac. It is non-commercial coursework.
 
-> **Status:** design. The notebooks described below are not written yet.
+> **Status:** in progress. The data step (`data.ipynb`) is done. BM25, off-the-shelf bge-small and fine-tuning experiments have run in `models.ipynb`. Best validation Recall@1 so far is 0.738: the fine-tuned bi-encoder plus a MiniLM-L12 cross-encoder reranking its top 10. The current goal is Recall@1 ≥ 0.82 without an LLM at question time (see [Results so far](#results-so-far) and [Next](#next)). Fine-tuned models have no test scores yet; the test set is scored once, at the end.
 
 ## Research question
 
@@ -41,6 +41,7 @@ flowchart LR
 | 3 | bge-small-en-v1.5, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
 | 4 | Hybrid of 1 and 2 | Reciprocal rank fusion |
 | 5 | Hybrid of 1 and 3 | Reciprocal rank fusion |
+| 6 | 3 + a cross-encoder reranking its top k | Reads question and entry together; added after the error analysis |
 
 ```mermaid
 flowchart LR
@@ -62,9 +63,17 @@ Reciprocal rank fusion merges the two rankings using ranks alone, so BM25 and de
 | 5 vs 4 | Does fine-tuning still help once BM25 is fused in? |
 | 3 vs 5 | After fine-tuning, does adding BM25 still help? |
 
+### Reranker (condition 6)
+
+The error analysis showed the answer is in the fine-tuned model's top 20 for about 97% of questions but often not first. Many misses need the question and the page read together (a "city in Quebec" is Trois-Rivières, not the province page). A cross-encoder does that, but it costs one model pass per page. So it only reorders a fixed small top k from the bi-encoder, never the whole history, which keeps the cost flat as a real history grows to thousands of pages.
+
+- **Training data mirrors evaluation.** Each of the 50k training rows gets a pseudo-history built like the real ones: the answer, 100 BM25 look-alikes and 99 random training pages. The fine-tuned bi-encoder ranks it, and its 7 top non-answer pages become hard negatives.
+- **Loss.** `MultipleNegativesRankingLoss` for cross-encoders: a softmax over the positive, its 7 hard negatives and 4 in-batch negatives. Training uses 1 epoch, bf16, `max_length` 128.
+- **Tested:** `cross-encoder/ms-marco-MiniLM-L-6-v2` (22M) and `ms-marco-MiniLM-L-12-v2` (33M), at k = 10, 20, 50 and 200.
+
 ### Out of scope
 
-- **Reranker.** A cross-encoder that rescores the top results is left out. It can only reorder what the retriever already found, and a strong fine-tuned retriever leaves it little to fix.
+- **An LLM at question time.** A second LLM step (for example an 8B model reranking the top 5) would add about a second per question. The design keeps question time to small encoders; LLMs only write training data or help with analysis offline.
 - **LLM generation and result filtering.** Filtering the ranked list, for example by visit date, belongs to the application and comes later. Real histories record visit times, but ORCAS does not, so this data cannot evaluate date handling.
 
 ## Data
@@ -179,12 +188,17 @@ The method under test fine-tunes bge-small-en-v1.5 (33M parameters, 384-dimensio
 
 Done in the training notebook, not the data step:
 
-1. **Split** with `train_test_split`, passing counts rather than fractions: 2,000 test and 500 dev rows. 2,000 test questions measure Recall@5 to about ±1 point.
-2. **Write test questions** with Llama for the test and dev rows.
-3. **Drop training rows** whose `answer_did` appears in any test or dev row's `clicked_dids`.
-4. **Filter training rows:** drop title copies (four or more consecutive title words), rewrites containing CJK characters, duplicate questions, and rewrites below a `train_score` cutoff chosen on dev.
+1. **Split** with `train_test_split`, passing counts rather than fractions: 2,000 test and 500 validation rows. 2,000 test questions measure Recall@5 to about ±1 point.
+2. **Write test questions** with Llama for the test and validation rows.
+3. **Drop training rows** whose `answer_did` appears in any test or validation row's `clicked_dids`.
+4. **Filter training rows:**
+   - drop title copies (four or more consecutive title words);
+   - drop rewrites containing CJK characters;
+   - drop duplicate questions;
+   - drop the lowest 10% by `train_score` (`drop10`, chosen on validation);
+   - cap how often a three-word opening may start a question.
 5. **Mix in about 30% original keyword queries** so the model still handles short searches.
-6. **Mine one hard negative per question:** the top BM25 result over training entries that is not in the row's `clicked_dids`.
+6. **Mine one hard negative per question.** The current recipe (`NEGATIVES = "lookalike"`) uses the top BM25 match of the *answer page's own entry* over training entries, skipping the row's `clicked_dids`, the same way the evaluation histories are built. The original recipe, the top BM25 match of the question, scored 1.8 points lower.
 
 ### One training example
 
@@ -194,7 +208,7 @@ positive  Biography | imdb.com/name/nm0025309/bio                  ← answer_di
 negative  John Amos - Wikipedia | en.wikipedia.org/wiki/John_Amos  ← BM25 hard negative
 ```
 
-The hard negative looks right but is wrong. Random pages from the batch are easy to reject on topic alone, while test histories contain same-topic and near-duplicate pages, so the model needs examples that force fine distinctions. Excluding every page in `clicked_dids` keeps pages the searcher actually opened from being taught as wrong. If hard negatives hurt on dev, training falls back to in-batch negatives only.
+The hard negative looks right but is wrong. Random pages from the batch are easy to reject on topic alone, while test histories contain same-topic and near-duplicate pages, so the model needs examples that force fine distinctions. Excluding every page in `clicked_dids` keeps pages the searcher actually opened from being taught as wrong. If hard negatives hurt on validation, training falls back to in-batch negatives only.
 
 ### One batch
 
@@ -228,14 +242,16 @@ Every other question's positive and negative act as extra wrong answers (in-batc
 | Epochs | 1 |
 | Max length | 64 tokens |
 | Query prefix | `Represent this sentence for searching relevant passages: ` |
-| Seeds | 3 |
-| Device | Mac GPU (MPS), full precision |
+| Seeds | 3 (final runs); experiments use seed 0 |
+| Device | Mac GPU (MPS); full precision for final runs, bf16 for experiments |
+
+**Experiments.** The `models.ipynb` SETTINGS cell switches the notebook into experiment mode (`RUN_FINAL = False`). Each experiment trains one seed-0 model on 50k question rows in bf16 and writes `results/experiments/<name>/validation.json`.
 
 **Learning curve.** If time allows, the model is also trained on the first 25k and 100k training rows to show whether more data still helps.
 
 ## Evaluation
 
-Each dev or test question ranks its own 200-entry history: its answer plus 199 other pages from the sample, including same-topic and near-duplicate pages. No other page in the question's `clicked_dids` enters its history, so exactly one entry is correct. All conditions rank the same histories.
+Each validation or test question ranks its own 200-entry history. The history holds the answer, 100 BM25 look-alikes of the answer's own entry (same-topic and near-duplicate pages) and 99 random pages from the sample. No other page in the question's `clicked_dids` enters its history, so exactly one entry is correct. All conditions rank the same histories (`data/histories.parquet`).
 
 ```mermaid
 flowchart LR
@@ -252,7 +268,14 @@ flowchart LR
 | nDCG@10 | 1 ÷ log₂(rank + 1) if the answer is in the top 10, else 0 |
 | CPU ms per question | Search speed on a laptop CPU, with entry encoding timed separately |
 
-Differences between conditions are tested with a paired bootstrap over test questions. All choices (score cutoff, checkpoint, hard negatives or not) are made on dev. Test is run once per final model.
+Differences between conditions are tested with a paired bootstrap over test questions. All choices (score cutoff, checkpoint, hard negatives, reranker k) are made on validation. Test is run once per final model. With 500 validation questions, Recall@1 has a standard error of about 2 points, so validation differences under about 3 points are treated as noise.
+
+**Guard against fitting the synthetic questions.** Validation is scored on three question sets for the same 500 pages:
+- the Llama questions: the primary metric, written by a different LLM from the training questions;
+- the Qwen questions: the same style as training;
+- the original keyword queries, typed by real people.
+
+A change counts only if its Llama gain is not paid for by a drop on the keyword queries. Anything tuned beyond a single choice (blend weights, thresholds) is tuned on held-out training rows, not on validation.
 
 ### Success
 
@@ -262,7 +285,9 @@ Differences between conditions are tested with a paired bootstrap over test ques
 - The target gain is at least 10 points.
 - The gain holds across all 3 seeds.
 
-**First check on dev.** If a baseline already scores above about 85% Recall@5, a 10-point gain is impossible. In that case the histories are made harder or Recall@1 becomes the primary metric, decided on dev before any test run.
+**First check on validation.** If a baseline already scores above about 85% Recall@5, a 10-point gain is impossible. In that case the histories are made harder or Recall@1 becomes the primary metric, decided on validation before any test run.
+
+**Outcome of the check.** Off-the-shelf bge-small scored 0.896 validation Recall@5, so **Recall@1 is the primary metric**, with MRR breaking ties. The current target is validation Recall@1 ≥ 0.82.
 
 **Secondary checks:**
 
@@ -282,9 +307,10 @@ A result that misses the target is still reported in full with its analysis.
 | Role | Model | Where it runs |
 | --- | --- | --- |
 | Training rewrites | [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B), 4-bit MLX ([mlx-community/Qwen3.6-35B-A3B-4bit](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit)) | Data step, every sampled row |
-| Test questions | [Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct), 4-bit MLX ([mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit)) | Training notebook, test and dev rows only |
+| Test questions | [Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct), 4-bit MLX ([mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit)) | `models.ipynb`, test and validation rows only |
 | Retriever | [bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) | Conditions 2–5, and the model the application uses |
-| Keyword search | BM25 via bm25s | Conditions 1, 4, 5, and hard-negative mining |
+| Keyword search | BM25 via bm25s | Conditions 1, 4, 5, histories, and hard-negative mining |
+| Reranker | [ms-marco-MiniLM-L-6-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2), [ms-marco-MiniLM-L-12-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2), fine-tuned | Condition 6, reordering the bi-encoder's top k |
 
 Qwen and Llama only write questions; they are never evaluated. Both run with MLX on the Mac's GPU:
 
@@ -309,12 +335,12 @@ models/
     bge-ft-seed0/
   trained/               final models for evaluation and the application
     bge-ft-seed0/
-    history-retriever/   the model selected on dev, used by the application
+    history-retriever/   the model selected on validation, used by the application
 ```
 
 - **Downloads.** The notebooks set `HF_HOME` to `models/hf` before importing any Hugging Face library, so every download lands in the repo folder instead of `~/.cache`. Each model's revision is pinned.
 - **Checkpoints during training.** The trainer saves a checkpoint every few hundred steps to `models/checkpoints/<run>/`, so an interrupted run resumes from the last one.
-- **Final models.** Each trained model is saved as a standard sentence-transformers folder in `models/trained/<run>/`, with a `training_info.json` recording the base model, seed, training rows, and dev metrics. The query prefix is stored in the model's config, so the application cannot forget it.
+- **Final models.** Each trained model is saved as a standard sentence-transformers folder in `models/trained/<run>/`, with a `training_info.json` recording the base model, seed, training rows, settings, and validation metrics. The query prefix is stored in the model's config, so the application cannot forget it.
 
 ### Using the trained model in the application
 
@@ -333,16 +359,18 @@ Entries must be formatted exactly as in training: `title | url` with the URL nor
 
 ## Compute estimates
 
-None of these are measured yet. They are planning estimates for an M5 Pro with 64 GB of memory, to be replaced by real timings.
+Planning estimates for an M5 Pro with 64 GB of memory; measured timings, where they exist, are noted.
 
 | Step | Estimate |
 | --- | --- |
 | Download ORCAS and stream MS MARCO titles | 20–30 min |
 | Clean, join, sample | ~10 min |
 | **Qwen rewrites, 300k rows** | **3–5 h, the main uncertainty**; set by the 500-row pilot |
-| Llama test and dev questions, 2,500 rows | 10–15 min |
-| Hard-negative mining | 10–15 min |
-| Fine-tuning, per seed | 15–30 min |
+| Llama test and validation questions, 2,500 rows | 10–15 min |
+| Hard-negative mining | 10–15 min; batched BM25 on all CPU cores makes it a few minutes |
+| Fine-tuning bge-small, 50k question rows, bf16 | measured ~17 min |
+| Reranker negatives for 50k rows (pseudo-histories + bi-encoder ranking) | measured ~2 min |
+| Cross-encoder training, 50k rows, bf16 | measured ~19 min (MiniLM-L6) and ~40 min (MiniLM-L12), with both running at once |
 | Evaluating all conditions | ~15 min |
 
 If the pilot projects the Qwen run past one night, training starts on whatever rows have finished, since the run fills rows in random order.
@@ -350,17 +378,95 @@ If the pilot projects the Qwen run past one night, training starts on whatever r
 ## Repo layout
 
 ```text
-notebooks/
-  01_data.ipynb        download, clean, sample, Qwen rewrites
-  02_train.ipynb       split, Llama test questions, hard negatives, fine-tuning
-  03_evaluate.ipynb    conditions 1–5, metrics, bootstrap tests, error export
+data.ipynb             download, clean, sample, Qwen rewrites
+models.ipynb           SETTINGS; split, Llama questions, histories; BM25; bge-small off the shelf;
+                       fine-tuning; cross-encoder reranker; validation and test scoring
 data/
   data.parquet         the dataset
+  splits.parquet       train / validation / test assignment by qid
+  histories.parquet    the 200-entry history of every validation and test question
 models/                downloads, checkpoints, trained models (gitignored)
-results/               per-question rankings and metrics for each condition
+results/
+  scores.md, scores.csv     all scores so far
+  error_analysis.md         where the models miss
+  rankings/, speed/         per-question rankings and timings of the final conditions
+  experiments/<name>/       validation.json (settings + metrics) of each experiment
 ```
 
-The environment is managed with `uv`, and the notebooks run on its `.venv` kernel in VS Code.
+The notebooks run on a `uv`-installed Python 3.11 with `requirements.txt`, in VS Code.
+
+## Results so far
+
+Validation, 500 Llama questions. Fine-tuned rows use 50k training rows, bf16 and seed 0. Full numbers are in `results/scores.md` and `results/experiments/`.
+
+| Model | Recall@1 | Recall@5 | MRR |
+| --- | --- | --- | --- |
+| BM25 | 0.476 | 0.708 | 0.582 |
+| bge-small, off the shelf | 0.654 | 0.896 | 0.764 |
+| bge-small fine-tuned, question BM25 negatives (`baseline-50k`) | 0.690 | 0.902 | 0.783 |
+| bge-small fine-tuned, look-alike negatives | 0.708 | 0.920 | 0.798 |
+| + MiniLM-L6 cross-encoder, top 10 | 0.722 | 0.926 | 0.810 |
+| + MiniLM-L12 cross-encoder, top 10 | **0.738** | **0.932** | **0.824** |
+
+The same pages with the other two validation question sets (Recall@1):
+
+| Model | Llama | Qwen (training style) | Keyword (real searches) |
+| --- | --- | --- | --- |
+| bge-small, off the shelf | 0.654 | 0.622 | 0.552 |
+| bge-small fine-tuned, look-alike negatives | 0.708 | 0.708 | 0.626 |
+| + MiniLM-L6, top 10 | 0.722 | 0.698 | 0.624 |
+| + MiniLM-L12, top 10 | 0.738 | 0.716 | 0.598 |
+
+What has been learned:
+
+- **Negatives that look like the evaluation's look-alike pages help most.** No other training change has helped: a higher learning rate, more epochs, a bigger batch, and URLs split into words were each neutral or worse.
+- **A reranker needs fine-tuning on this task.** Off the shelf, both MiniLM rerankers scored below the bi-encoder alone at k = 20 (0.670 and 0.656). Fine-tuned, they gain 1.4 to 3 points.
+- **The reranker's gain does not pass the keyword check yet.** MiniLM-L12 gains 3 points on the Llama questions, but loses 2.8 points on the keyword queries and gains less than a point on the Qwen questions. The likely cause: the reranker trained on Qwen questions only, while the bi-encoder also trains on about 30% keyword queries. The fine-tuned bi-encoder itself shows no style gap (Qwen = Llama = 0.708).
+- **A small k is enough.** Raising k past 10 does not help, and k = 10 costs about 7 ms (L6) to 12 ms (L12) per question on the Mac GPU.
+- **Gains are small next to the noise.** On 500 questions, differences under about 3 points are noise.
+- **The ceiling may be near 0.85.** The error analysis estimates that about 10 in 25 misses cannot be told apart from the question and `title | url` alone.
+
+## Next
+
+The current goal is validation Recall@1 ≥ 0.82, with no LLM at question time, without fitting the synthetic questions. Experiments run in parallel worktrees, in two waves to keep GPU time short.
+
+| Experiment | Idea |
+| --- | --- |
+| `fusion` | Blend bi-encoder and cross-encoder scores, weights tuned on held-out training rows |
+| `reranker-keywords` | Retrain the MiniLM-L12 reranker with the keyword-query examples the bi-encoder already uses |
+| `bge-base` | Larger first stage (bge-base, 110M), then the MiniLM-L12 reranker |
+| `bge-reranker` | Larger cross-encoder (bge-reranker-base, 278M) at k = 10 |
+| `miss-analysis` | Label the remaining misses (needs world knowledge, ambiguous, or bad label) to measure the real ceiling |
+| `all-rows` | All ~200k training rows instead of 50k |
+| `mixed-questions` | Offline Llama rewrites of training questions, with new examples, mixed with Qwen; judged on the keyword queries |
+
+The winners are combined, checked on the Qwen and keyword questions, and only then scored on the test set.
+
+## Later: browsing behaviour from real Chrome histories
+
+About 10 of the 25 sampled misses cannot be told apart from the question and `title | url` alone. Real histories record when and how often a page was visited, which can settle such cases, but ORCAS has no visit times, so this step needs real Chrome histories and is left for later.
+
+- **Design.** Keep the text model trained here unchanged. Add a small combiner on top: text score plus a few behavioural features (days since last visit, visit count, typed count, whether it was reached from a search, same session). It has about 5–10 weights, so a few hundred labelled examples are enough.
+- **Labels without a training set.** Chrome's `History` database records revisits. Each time a person goes back to an older page (`keyword_search_terms` links their search to the resulting URL; `visits` stores the transition type), the pages visited before that moment form the history, the revisited page is the answer, and the search, rewritten into a question by the local LLM, is the question. Keep revisits that look like re-finding (reached through a search, more than a day since the last visit, rarely visited pages) and drop navigation habits such as typed URLs of daily sites.
+- **Evaluation.** Fit on earlier months and test on later ones, never a random split, so visit counts never include future visits.
+- **Human questions.** Every question in this project is LLM-written or a search query. The final check is questions the user writes in their own words about their own history; the model chosen here is confirmed on them before any further tuning.
+- **Do not** add synthetic timestamps to ORCAS to learn these weights; they would only learn the made-up assumptions.
+
+Privacy:
+
+- Browsing history reveals health, finances, politics and location, and URLs alone identify people.
+- Everything stays on the machine: the LLM rewrite runs locally, never through a cloud API.
+- Raw histories, rankings and notebook outputs that show titles or URLs stay in gitignored folders on an encrypted disk; only aggregate metrics are committed.
+- Other people's histories need informed consent and ethics approval first, collect only the needed fields, and have a deletion date. Models trained on them are not shared.
+
+Bias to report as limitations:
+
+- **One person's history is a case study.** The weights describe that person's habits and do not generalise.
+- **Revisit labels only contain pages that were found again,** so they under-represent the hard cases the assistant is for.
+- **A visit-count prior feeds itself:** boosted pages get clicked and so visited more. Keep its weight small and on a log scale, so that a strong text match can always overrule it.
+- **Search-based revisits inherit the search engine's ranking.**
+- **The text model comes from English Bing searches** and LLM-written questions, so expect weaker results on non-English or niche pages. Report results per language and site type.
+- **A private page may rank first for a vague question** while someone else is watching the screen. Let the user exclude sites.
 
 ## References
 
