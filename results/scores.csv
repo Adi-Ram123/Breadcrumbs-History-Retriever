@@ -1,0 +1,15 @@
+model,split,source,n,recall@1,recall@5,mrr,ndcg@10
+bge_base,test,keyword,2000,0.591,0.842,0.702,0.747
+bge_base,test,llama,2000,0.676,0.896,0.773,0.811
+bge_base,test,qwen,2000,0.644,0.874,0.746,0.785
+bge_base,validation,llama,500,0.654,0.896,0.764,0.804
+bm25,test,keyword,2000,0.41,0.637,0.518,0.56
+bm25,test,llama,2000,0.486,0.717,0.593,0.634
+bm25,test,qwen,2000,0.478,0.7,0.581,0.622
+bm25,validation,llama,500,0.476,0.708,0.582,0.624
+rrf_bm25_bge_base,test,keyword,2000,0.462,0.742,0.591,0.642
+rrf_bm25_bge_base,test,llama,2000,0.58,0.818,0.689,0.731
+rrf_bm25_bge_base,test,qwen,2000,0.568,0.8,0.677,0.721
+rrf_bm25_bge_base,validation,llama,500,0.55,0.816,0.675,0.719
+bge_ft_select_drop10_hard,validation,llama,500,0.694,0.898,0.786,
+bge_ft_select_none_hard,validation,llama,500,0.692,0.892,0.785,
