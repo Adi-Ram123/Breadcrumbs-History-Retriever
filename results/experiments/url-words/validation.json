@@ -1,0 +1,33 @@
+{
+  "settings": {
+    "EXPERIMENT": "url-words",
+    "URL_WORDS": true,
+    "NEGATIVES": "question",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": 50000,
+    "HALF_PRECISION": true
+  },
+  "validation": {
+    "bm25": {
+      "recall@1": 0.486,
+      "recall@5": 0.714,
+      "mrr": 0.5950080434553316
+    },
+    "bge_base": {
+      "recall@1": 0.668,
+      "recall@5": 0.892,
+      "mrr": 0.7707328924324427
+    },
+    "exp_url-words": {
+      "recall@1": 0.682,
+      "recall@5": 0.894,
+      "mrr": 0.779939390537314
+    }
+  }
+}
