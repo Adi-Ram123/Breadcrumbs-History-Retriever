@@ -1,0 +1,48 @@
+{
+  "settings": {
+    "EXPERIMENT": "train-harder-ep",
+    "URL_WORDS": false,
+    "NEGATIVES": "question",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 5e-05,
+    "EPOCHS": 3,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": 50000,
+    "HALF_PRECISION": true
+  },
+  "validation": {
+    "bm25": {
+      "recall@1": 0.476,
+      "recall@5": 0.708,
+      "mrr": 0.5824679455346123
+    },
+    "bge_base": {
+      "recall@1": 0.654,
+      "recall@5": 0.896,
+      "mrr": 0.764038756188632
+    },
+    "exp_train-harder-ep_epoch1": {
+      "recall@1": 0.676,
+      "recall@5": 0.898,
+      "mrr": 0.7725681740784283
+    },
+    "exp_train-harder-ep_epoch2": {
+      "recall@1": 0.67,
+      "recall@5": 0.888,
+      "mrr": 0.7707808955437825
+    },
+    "exp_train-harder-ep_epoch3": {
+      "recall@1": 0.668,
+      "recall@5": 0.896,
+      "mrr": 0.7673777813238901
+    },
+    "exp_train-harder-ep": {
+      "recall@1": 0.67,
+      "recall@5": 0.896,
+      "mrr": 0.7680948283721291
+    }
+  }
+}
