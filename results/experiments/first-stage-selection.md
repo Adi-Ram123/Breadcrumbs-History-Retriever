@@ -39,3 +39,10 @@ Accuracy = mean of Llama Recall@10 and Recall@50. The winner must not lose on th
 - The speed tie-break rests on CPU times that differ by under 1 ms per entry (16.95 to 17.77, about 5%), close to timing noise.
   On accuracy alone, snowflake leads mxbai seed 0 on every Llama and keyword metric except a tie at Recall@50
   (Llama Recall@1 0.790 against 0.760, Recall@10 0.982 against 0.976, keyword Recall@10 0.960 against 0.946).
+
+## Failed attempts (driver retries)
+
+- mxbai attempt 1: Metal out-of-memory (`MPS command buffer execution failed: Insufficient Memory`) during training at batch 128 without the cached loss. Nothing else held the GPU then. Attempt 4 resumed from the last checkpoint and finished. Seeds 1 and 2 ran with the same settings and did not hit it, so the peak is close to the limit rather than always over it.
+- mxbai attempts 2 and 3: a bug in the headless runner (it skipped cell 17, so `dense_speed` was undefined at the speed cell). Fixed in the runner; it affected only this worktree.
+- snowflake attempt 1: without the cached loss, batch 128 used about 69 GB and swapped. The kernel was stopped by hand. Attempt 2 used `CACHED_LOSS=True` with mini batch 32.
+- The GPU lock was not involved: each attempt held `gpu.lock` alone, and the runner shuts its kernel down before the lock is released.
