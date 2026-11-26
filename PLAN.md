@@ -57,7 +57,7 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 
 ## Part 2: the app (`Adi-Ram123/Breadcrumbs-History-Assistant`, local branch `model`)
 
-The app becomes a retrieval-augmented generation (RAG) system. One trained retriever makes every language decision, and the LLM only writes the reply. There is no parser and no combiner. Nothing is pushed until the owner reviews it. Changes to Daniel's areas are kept in separate commits.
+The app becomes a retrieval-augmented generation (RAG) system. One trained retriever makes every language decision, and the LLM only writes the reply. There is no parser and no combiner. **All app work stays on the local branch `model`. Nothing is ever pushed to GitHub and no PR is opened; the owner decides what to do with the branch.** Changes to Daniel's areas are kept in separate commits.
 
 ```text
 question + now ─► first stage: fine-tuned bi-encoder, text only, top k by meaning (k chosen for very high recall, e.g. 50)
