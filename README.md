@@ -446,7 +446,8 @@ The final experiment and the move into the app are planned in [`PLAN.md`](PLAN.m
    - write the report.
 2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:** a retrieval-augmented generation (RAG) design.
    - The fine-tuned first stage keeps a large top k for high recall.
-   - The fine-tuned reranker reads each candidate with its history features written as text (visit time such as "1 day ago", visit count, clicks, opened from a search). It makes the language and time decisions.
+   - The fine-tuned reranker scores each candidate from the question, the page text and its history features: hours since the visit, visit count, clicks, opened from a search and time on page. It makes the language and time decisions.
+   - Two ways of giving it those features are compared: as a feature vector into one small output layer trained with the reranker (preferred), and written as text in the page string.
    - The local LLM only writes the reply.
    - Training uses the user's own history.
 

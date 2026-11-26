@@ -53,8 +53,7 @@ The app becomes a retrieval-augmented generation (RAG) system. One trained retri
 ```text
 question + now ─► first stage: fine-tuned bi-encoder, text only, top k by meaning (k chosen for very high recall, e.g. 50)
                   + the most recent entries (so questions about time alone are never missed)
-               ─► reranker reads question + each candidate as one text, features included:
-                  "title | url | searched 1 day ago, Tue 9:14 pm | 3 visits | opened from search | 2 min on page"
+               ─► reranker scores each candidate using the question, the page text AND its history features
                ─► top 10 ─► LLM writes the answer, citing only those entries
 ```
 
@@ -63,13 +62,15 @@ question + now ─► first stage: fine-tuned bi-encoder, text only, top k by me
    - Implement `load_embedder`, with the query prefix on the question side.
    - Add a reranker step in the executor.
    - The answer writer receives the top 10 entries with their visit times.
-2. **Features as text, no extra model parts.**
+2. **History features in the reranker. Both ways are tested and the better one is kept.**
    - The first stage stays text only. Its job is high recall: k is set from Part 1's Recall@k curve, so the right page is almost never cut.
-   - The reranker reads each candidate's features written as text, built when the question is asked: visit time (relative, weekday, time of day, date), visit count, clicks, whether it was opened from a search, and time on page.
-   - A new feature is one more phrase in that text. There is no parser, no combiner and no per-feature head.
-   - Known limit: a question about an old date with no topic ("what did I search on March 3?") depends on the first stage finding something by meaning.
+   - **Features**, computed when the question is asked: hours since the visit, weekday and hour, visit count, clicks, whether the page was opened from a search, and time on page.
+   - **Option 2, features as data (preferred).** The reranker's text vector for (question, page) and a feature vector go into one small layer that outputs the score. It is trained together with the reranker as one model. A new feature is one more number. Because the layer also sees the question's text vector, it can learn that "yesterday" goes with about 24 hours since the visit.
+   - **Option 1, features as text (comparison).** The same features are written into the page text ("searched 1 day ago, Tue 9:14 pm | 3 visits | opened from search"), with no model change.
+   - **The choice** is made on the app's dev questions by Recall@1, date accuracy and latency. If the two tie, Option 2 is kept.
+   - **Known limit:** a question about an old date with no topic ("what did I search on March 3?") depends on the first stage finding something by meaning.
 3. **Real training on the user's data.**
-   - The reranker is fine-tuned with the features in its input, on re-finding events from the user's history and later side-panel clicks.
+   - The reranker (with its features) is fine-tuned on re-finding events from the user's history and later side-panel clicks.
    - Time-phrase questions are written for real visit times, so the reranker learns what "yesterday" means.
    - Training uses earlier months and testing uses later ones.
 4. **Evaluation.**
