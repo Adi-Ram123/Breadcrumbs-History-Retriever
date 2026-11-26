@@ -13,8 +13,13 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 
 ### Questions
 
-- **Training questions:** Qwen rewrites of the ORCAS searches (unchanged).
-- **Validation and test questions:** Llama rewrites, regenerated with a **neutral prompt**. The earlier prompt forbade copying three or more title words and asked for loose descriptions, which handicapped BM25 by design. The two rules are removed; everything else in the prompt stays.
+- **One prompt for training and test.** The earlier prompt forbade copying three or more title words and asked for loose descriptions, which handicapped BM25 by design. Both rules are removed, and the same neutral rules are used for:
+  - the Qwen training questions;
+  - the Llama validation and test questions.
+
+  Two different LLMs still write the two sides, so a model cannot learn one writer's habits. Decoding is greedy.
+- **Few-shot examples, or none:** a pilot of 300 training rows per LLM compares the two. It measures opening-word shares, site-naming, title-copying and duplicates, plus a manual read of 30 questions per variant. Examples are dropped if they make the questions formulaic.
+- **Data size:** all 300k rows are rewritten. The earlier learning curve (bge-small: 0.708 at 50k question rows, 0.724 at about 131k, still rising) shows that more data helps. The first stage trains on every usable row (about 200k questions plus keyword queries). The reranker trains on 50k rows (20k for v2-m3), and more only if its validation curve is still rising. The training filter that dropped questions copying title words is removed, because the prompt now allows them.
 - **Check sets on the same pages:** the Qwen questions (same style as training) and the original ORCAS keyword queries (typed by real people). A model only counts as better if it does not lose on the keyword queries.
 
 ### Conditions
