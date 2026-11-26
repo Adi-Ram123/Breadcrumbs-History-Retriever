@@ -6,7 +6,7 @@ Browser history search matches the literal words typed against page titles and U
 
 The project runs locally in Jupyter notebooks in VS Code on an Apple Silicon Mac. It is non-commercial coursework.
 
-> **Status:** in progress. The data step (`data.ipynb`) is done. BM25, off-the-shelf bge-small and fine-tuning experiments have run in `models.ipynb`. Best validation Recall@1 so far is 0.738: the fine-tuned bi-encoder plus a MiniLM-L12 cross-encoder reranking its top 10. The current goal is Recall@1 ≥ 0.82 without an LLM at question time (see [Results so far](#results-so-far) and [Next](#next)). Fine-tuned models have no test scores yet; the test set is scored once, at the end.
+> **Status:** final evaluation in progress. The data step (`data.ipynb`) and the exploratory runs in `models.ipynb` are done. The final experiment compares eight conditions on test questions regenerated with a neutral prompt; see [`PLAN.md`](PLAN.md). Part 2 then moves the final model into the Breadcrumbs History Assistant app. The test set is scored once, at the end.
 
 ## Research question
 
@@ -37,11 +37,15 @@ flowchart LR
 | # | Condition | Role |
 | --- | --- | --- |
 | 1 | BM25 (k1 = 1.2, b = 0.75) | **Baseline.** Strong keyword search, a stronger version of the literal matching in Chrome's standard history search |
-| 2 | bge-small-en-v1.5, off the shelf | Dense retrieval without training |
-| 3 | bge-small-en-v1.5, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
-| 4 | Hybrid of 1 and 2 | Reciprocal rank fusion |
-| 5 | Hybrid of 1 and 3 | Reciprocal rank fusion |
-| 6 | 3 + a cross-encoder reranking its top k | Reads question and entry together; added after the error analysis |
+| 2 | all-MiniLM-L6-v2, off the shelf | The embedder the Breadcrumbs app uses today |
+| 3 | bge bi-encoder, off the shelf | Dense retrieval without training |
+| 4 | bge bi-encoder, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
+| 5 | Hybrid of 1 and 4 | Reciprocal rank fusion |
+| 6 | 4 + bge reranker, off the shelf, on the top 10 | Reads question and entry together, without training |
+| 7 | 4 + bge reranker, fine-tuned, on the top 10 | **Final model** (3 seeds); added after the error analysis |
+| 8 | Claude ranking the whole history | Hosted reference on 500 test questions; never part of the app |
+
+The bi-encoder and reranker sizes (bge-base or bge-large; bge-reranker-base or bge-reranker-v2-m3) are chosen once on validation: the best Recall@1, with reranking under about 250 ms per question. Earlier exploratory conditions used bge-small; the RRF hybrid with the off-the-shelf model is dropped.
 
 ```mermaid
 flowchart LR
@@ -58,10 +62,12 @@ Reciprocal rank fusion merges the two rankings using ranks alone, so BM25 and de
 
 | Comparison | Question it answers |
 | --- | --- |
-| 2 vs 1, 4 vs 1 | Does dense or hybrid retrieval beat keyword search? |
-| **3 vs 2** | **Does fine-tuning on the rewritten questions help?** The model is identical and only the training differs. |
-| 5 vs 4 | Does fine-tuning still help once BM25 is fused in? |
-| 3 vs 5 | After fine-tuning, does adding BM25 still help? |
+| 2, 3 vs 1 | Does dense retrieval beat keyword search? |
+| **4 vs 3** | **Does fine-tuning on the rewritten questions help?** The model is identical and only the training differs. |
+| 5 vs 4 | After fine-tuning, does adding BM25 still help? |
+| 6, 7 vs 4 | Does a reranker help, and does it need fine-tuning? |
+| 7 vs 2 | How much better is the final model than the app's current embedder? |
+| 7 vs 8 | How close is a small local model to a large hosted LLM? |
 
 ### Reranker (condition 6)
 
@@ -116,7 +122,9 @@ Only `data/data.parquet` is saved. Both source files are read straight from thei
 6. **Rewrite with Qwen.** Qwen3.6-35B-A3B rewrites every sampled search into a conversational question, filling `train_question` and `train_score`. The run saves progress into `data/data.parquet` every few thousand rows and skips rows already done, so an interrupted run resumes where it stopped. Rows are processed in sample order, so a run stopped early still leaves a clean random subset.
 7. **Check and save** against the guarantees listed under the schema.
 
-Test questions are written later, in the training notebook. After `train_test_split`, Llama-3.1-8B-Instruct writes a question for each test row only, and the result is saved back into `data/data.parquet` by `qid`. Rerunning the same split reuses them.
+Test questions are written later, in the training notebook. After `train_test_split`, Llama-3.1-8B-Instruct writes a question for each validation and test row only, and the result is saved back into `data/data.parquet` by `qid`. Rerunning the same split reuses them.
+
+**Neutral prompt for validation and test questions.** The first version of the Llama prompt shared two rules with the Qwen prompt: never copy three or more consecutive title words, and describe the page loosely. Those rules make questions avoid the page's own words, which handicaps BM25 by design. For the final evaluation, the validation and test questions are regenerated without those two rules. The Qwen training questions keep them.
 
 ### Example row
 
@@ -397,7 +405,7 @@ The notebooks run on a `uv`-installed Python 3.11 with `requirements.txt`, in VS
 
 ## Results so far
 
-Validation, 500 Llama questions. Fine-tuned rows use 50k training rows, bf16 and seed 0. Full numbers are in `results/scores.md` and `results/experiments/`.
+Exploratory runs. Validation, 500 Llama questions written with the first (paraphrase) prompt; the final evaluation re-scores everything on the neutral-prompt questions. Fine-tuned rows use 50k training rows, bf16 and seed 0. Full numbers are in `results/scores.md` and `results/experiments/`.
 
 | Model | Recall@1 | Recall@5 | MRR |
 | --- | --- | --- | --- |
@@ -428,19 +436,18 @@ What has been learned:
 
 ## Next
 
-The current goal is validation Recall@1 ≥ 0.82, with no LLM at question time, without fitting the synthetic questions. Experiments run in parallel worktrees, in two waves to keep GPU time short.
+The final experiment and the move into the app are planned in [`PLAN.md`](PLAN.md):
 
-| Experiment | Idea |
-| --- | --- |
-| `fusion` | Blend bi-encoder and cross-encoder scores, weights tuned on held-out training rows |
-| `reranker-keywords` | Retrain the MiniLM-L12 reranker with the keyword-query examples the bi-encoder already uses |
-| `bge-base` | Larger first stage (bge-base, 110M), then the MiniLM-L12 reranker |
-| `bge-reranker` | Larger cross-encoder (bge-reranker-base, 278M) at k = 10 |
-| `miss-analysis` | Label the remaining misses (needs world knowledge, ambiguous, or bad label) to measure the real ceiling |
-| `all-rows` | All ~200k training rows instead of 50k |
-| `mixed-questions` | Offline Llama rewrites of training questions, with new examples, mixed with Qwen; judged on the keyword queries |
-
-The winners are combined, checked on the Qwen and keyword questions, and only then scored on the test set.
+1. **Part 1, this repo:**
+   - regenerate the validation and test questions with the neutral prompt;
+   - choose the model sizes on validation;
+   - train the fine-tuned conditions with 3 seeds;
+   - score conditions 1–8 once on test (Llama, Qwen and keyword questions, with a paired bootstrap and latency);
+   - write the report.
+2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:**
+   - integrate the final bi-encoder and reranker;
+   - add a learned combiner for the app's behavioural fields (recency, visit count, searches, clicks), trained on the user's own re-finding events;
+   - use the result as the app's retriever.
 
 ## Later: browsing behaviour from real Chrome histories
 
