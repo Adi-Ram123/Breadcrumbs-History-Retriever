@@ -4,7 +4,12 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 
 ## Part 1: the experiment (this repo)
 
-**Research question:** when people ask an assistant about their browsing history in their own words, which retriever returns the page they mean? Each question ranks its own 200-page history (the answer, 100 BM25 look-alikes of it, 99 random pages); Recall@1 is the primary metric, MRR breaks ties, Recall@5 is reported.
+**Research question:** when people ask an assistant about their browsing history in their own words, which retriever returns the page they mean? Each question ranks its own 200-page history (the answer, 100 BM25 look-alikes of it, 99 random pages). Part 1 explores the approach only: there is no time handling and there are no synthetic timestamps.
+
+**Two stages, each judged by its own job.**
+- The **first stage** (bi-encoder) must get the answer into a short list. It is judged by Recall@k for k = 10, 20, 50 and 100, which is the ceiling for the reranker.
+- The **reranker** must put the answer first. It is judged by Recall@1, with MRR breaking ties, after reordering the first stage's top k.
+- Recall@5 is also reported. The report shows reranker latency for each k, so that Part 2 can choose k for the app.
 
 ### Questions
 
@@ -26,7 +31,9 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 | 8 | Claude, hosted, ranking the whole 200-page history (reference only, never part of the app) |
 
 - **Why two models in 6 and 7:** the bi-encoder embeds every page once, so a question costs one dot product per page and scales to large histories. The reranker (a cross-encoder) reads the question and a page together, which is more accurate but costs one model pass per page, so it only reorders the bi-encoder's top 10. Both come from the BGE family.
-- **Model sizes, chosen once on validation:** bi-encoder `bge-base-en-v1.5` (110M) or `bge-large-en-v1.5` (335M); reranker `bge-reranker-base` (278M) or `bge-reranker-v2-m3` (568M). The rule is the best validation Recall@1, with reranking under about 250 ms per question at k = 10 on the Mac GPU. If a larger model wins, it is used.
+- **Model sizes, chosen once on validation and fixed before any result is seen:**
+  - bi-encoder: `bge-base-en-v1.5` (110M) or `bge-large-en-v1.5` (335M), chosen by Recall@k. Large is used only if it wins by at least 2 points without losing on the keyword queries.
+  - reranker: `bge-reranker-base` (278M) or `bge-reranker-v2-m3` (568M), chosen by Recall@1, with reranking under about 250 ms per question at k = 10 on the Mac GPU.
 - **Fusion:** the bi-encoder and reranker scores are standardised within the top 10 and added. Their weights are picked on held-out training rows, never on validation.
 - **Not in the table:** larger reranker experiments that did not improve results (MiniLM-L12, Qwen3-Reranker-0.6B and 4B). One sentence in the report covers them.
 
@@ -41,23 +48,25 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 
 ## Part 2: the app (`Adi-Ram123/Breadcrumbs-History-Assistant`, local branch `model`)
 
-Nothing is pushed until the owner reviews it. Changes to Daniel's areas (executor, ports, ingest) are kept in separate commits so they can be agreed with him.
+The app becomes a retrieval-augmented generation (RAG) system. One trained retriever makes every language decision, and the LLM only writes the reply. There is no parser and no combiner. Nothing is pushed until the owner reviews it. Changes to Daniel's areas are kept in separate commits.
+
+```text
+question + now ─► first stage: top k by meaning + recent entries ─► reranker reads "title | url | visited 1 day ago · Tue evening · Nov 24"
+              ─► top 10 with visit times ─► LLM writes the answer, citing only those entries
+```
 
 1. **Integration.**
-   - Export the final bi-encoder and reranker to `ml/models/`.
-   - Implement `load_embedder`, with a query-side encoder (`embed_query`) for the query prefix.
-   - Add a `Reranker` port.
-   - Executor: SQL time and kind filter → bi-encoder on the full question → deduplicate by page → rerank the top 10 → fuse.
-   - The LLM only writes the answer sentence, citing the returned entries. Ranking never depends on it.
-2. **Retraining for the app's fields.** The text models stay as trained. A small learned combiner adds the behavioural fields from the `entries` table:
-   - days since the last visit;
-   - visit count;
-   - whether a search came just before the visit;
-   - same site as the last visit;
-   - later, clicks in the side panel.
-
-   **Labels** come from re-finding events: a search, then a visit to a page seen at least a day earlier. Later they come from side-panel clicks. **Training** fits earlier months and tests on later ones. Dates in a question are handled exactly by the parser's time range and the SQL filter.
-3. **Backend.** The retrained stack becomes the app's retriever.
-   - **Comparison:** on the app's dev questions, against stock all-MiniLM and against a Claude call over the same candidates.
-   - **Metrics:** Recall@1 and Recall@5.
-   - **Last check:** your own written questions, once at the end.
+   - Export the Part 1 bi-encoder and reranker to `ml/models/`.
+   - Implement `load_embedder`, with the query prefix on the question side.
+   - Add a reranker step in the executor.
+   - The answer writer receives the top 10 entries with their visit times.
+2. **Time handled by the retriever.**
+   - Page vectors are computed once, so the first stage cannot judge time itself. Its candidates are therefore the top k by meaning plus the recent entries, so that time questions are not missed.
+   - The reranker reads each candidate's visit time written as text when the question is asked ("1 day ago", weekday, time of day, date). It matches that to phrases such as "yesterday" or "last week".
+3. **Real training on the user's data.**
+   - The reranker is fine-tuned on the user's history: re-finding events and later side-panel clicks.
+   - Time-phrase questions are written for real visit times. They teach what "yesterday" means, not the user's habits.
+   - Training uses earlier months and testing uses later ones.
+4. **Evaluation.**
+   - The app's dev questions, including date questions written by the user, scored by Recall@1 and Recall@5 and by date accuracy.
+   - The comparison is against stock all-MiniLM and against a Claude call given the same history.

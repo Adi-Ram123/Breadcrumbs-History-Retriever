@@ -444,10 +444,10 @@ The final experiment and the move into the app are planned in [`PLAN.md`](PLAN.m
    - train the fine-tuned conditions with 3 seeds;
    - score conditions 1–8 once on test (Llama, Qwen and keyword questions, with a paired bootstrap and latency);
    - write the report.
-2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:**
-   - integrate the final bi-encoder and reranker;
-   - add a learned combiner for the app's behavioural fields (recency, visit count, searches, clicks), trained on the user's own re-finding events;
-   - use the result as the app's retriever.
+2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:** a retrieval-augmented generation (RAG) design.
+   - One trained retriever makes the language decisions. Its reranker reads each candidate's visit time written as text, such as "1 day ago", so it can answer date questions.
+   - The local LLM only writes the reply.
+   - Training uses the user's own history.
 
 ## Later: browsing behaviour from real Chrome histories
 
