@@ -71,6 +71,20 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 5. Claude reference: a random 500 test Llama questions, sent through the Batch API with the whole 200-page history. Our final model is scored on the same 500. It needs an Anthropic API key, stored SOPS-encrypted and run with `with-secrets`.
 6. Write the report: `results/scores.md` and the README.
 
+## Schedule: everything done by end of Friday 2026-11-27
+
+- **Part 1:**
+  - The reranker winner still gets 3 seeds.
+  - The step 4 test scoring is built in worktree `test-eval` while the rerankers train, and it runs as soon as the reranker seeds finish.
+  - The failed training attempts are diagnosed, so the remaining runs avoid them.
+- **Part 2 starts now, in parallel**, and no longer waits for the Part 1 report.
+  - Integration (step 1) is built against the known first stage (mxbai). The reranker winner is plugged in when it is picked.
+  - Option 1 (features as text) is trained first. Option 2 (features as data) trains overnight. If Option 2 is not ready by Friday midday, Option 1 ships and the report says Option 2 is pending.
+  - Real training uses re-finding events only. Side-panel clicks are added later, because they need weeks of use.
+  - The Claude comparison is skipped for now, in both parts.
+  - The user writes about 30 dev questions with dates against their own history by Friday morning.
+- **GPU:** every GPU job still goes through `$TMPDIR/gpu_run.sh`. The Part 1 runs go first.
+
 ## Part 2: the app (`Adi-Ram123/Breadcrumbs-History-Assistant`, local branch `model`)
 
 The app becomes a retrieval-augmented generation (RAG) system. One trained retriever makes every language decision, and the LLM only writes the reply. There is no parser and no combiner. **All app work stays on the local branch `model`. Nothing is ever pushed to GitHub and no PR is opened; the owner decides what to do with the branch.** Changes to Daniel's areas are kept in separate commits.
