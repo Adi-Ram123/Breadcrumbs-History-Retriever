@@ -36,21 +36,37 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 | 8 | Claude, hosted, ranking the whole 200-page history (reference only, never part of the app) |
 
 - **Why two models in 6 and 7:** the bi-encoder embeds every page once, so a question costs one dot product per page and scales to large histories. The reranker (a cross-encoder) reads the question and a page together, which is more accurate but costs one model pass per page, so it only reorders the bi-encoder's top 10. The models are picked by the screening below.
-- **Model choice: screen widely, fine-tune few, decide once on validation.** Each candidate is first scored off the shelf on the new validation questions (minutes each). Only models that load without running custom code from the model repository are used.
-  - **First stage candidates:** `bge-base-en-v1.5` (110M), `bge-large-en-v1.5` (335M), `mxbai-embed-large-v1` (335M), `e5-large-v2` (335M), `snowflake-arctic-embed-l-v2.0` (568M) and `Qwen3-Embedding-0.6B` (600M, built on an LLM).
-    - The top 2 by off-the-shelf Recall@10 and Recall@50 are fine-tuned.
-    - A larger model is kept only if it wins by at least 2 points without losing on the keyword queries.
-  - **Reranker candidates:** `bge-reranker-base` (278M), `bge-reranker-v2-m3` (568M), `Qwen3-Reranker-0.6B` (600M, LLM-based), `gte-reranker-modernbert-base` (149M) and `ms-marco-MiniLM-L6` (22M, speed reference).
-    - The top 2 by off-the-shelf Recall@1, among those under about 250 ms per question at k = 10, are fine-tuned on the chosen first stage's top-k mistakes.
-  - The screening goes into an appendix table. The results table shows one first stage and one reranker.
+- **Model choice: accuracy first, then speed.** Earlier rounds showed that small models (bge-small, MiniLM) lose Recall@1 for lack of capacity. Each stage therefore fine-tunes its 3 most accurate candidates. Every candidate is widely used in apps and loads without custom code. The off-the-shelf screening is in `results/experiments/screening/screening.md` (an appendix table).
+  - **First stage** (judged by Recall@10 and Recall@50):
+    - **`mxbai-embed-large-v1`** (335M). Best Recall@10 (0.978) and Recall@50 0.996.
+    - **`snowflake-arctic-embed-l-v2.0`** (568M). Best Recall@1 (0.774) and MRR (0.848), with Recall@10 0.972.
+    - **`e5-large-v2`** (335M). Best Recall@50 (0.998) and keyword Recall@50 (0.992).
+  - **Fit with the app:** all three are encoder bi-encoders with standard pooling. Each exports as a sentence-transformers model with a `retriever.json` and needs no custom code. They stay text only, as Part 2 requires.
+  - **Reranker** (judged by Recall@1; fine-tuned on the chosen first stage's top-k mistakes). Part 2's preferred design (Option 2) joins the reranker's pooled (question, page) vector with a feature vector in one small layer. So every candidate is an encoder cross-encoder with a pooled vector, and LLM rerankers are excluded.
+    - **`bge-reranker-v2-m3`** (568M, XLM-RoBERTa). Best off the shelf: Recall@1 0.770, 66 ms at k = 10.
+    - **`mxbai-rerank-large-v1`** (435M, DeBERTa-v3-large). Mixedbread reports it is among the strongest open rerankers on BEIR. It still needs an off-the-shelf screen first, which takes minutes.
+    - **`gte-reranker-modernbert-base`** (149M, ModernBERT). Recall@1 0.754 at 30 ms, within 1.6 points of v2-m3, with an 8k context that fits page-text chunks.
+  - **Selection:**
+    - The most accurate fine-tuned candidate wins: Recall@1 for the reranker, Recall@10 and Recall@50 for the first stage.
+    - Speed decides only when two candidates are within 1 point, or when the winner breaks the latency budget at the app's k. The budget is about 250 ms per question for the reranker.
+    - The winner must not lose on the keyword queries.
+    - Only the winner of each stage gets the 2 extra seeds.
+  - **Screened, then dropped:**
+    - `bge-base`, `bge-large`, `bge-reranker-base` and `ms-marco-MiniLM-L6`.
+    - `Qwen3-Embedding-0.6B` and `Qwen3-Reranker-0.6B`: they are LLM-based, compete with the local reply LLM for memory, and the reranker has no pooled vector for the feature layer.
+
+    They appear in the appendix table only.
+  - The results table shows one first stage and one reranker.
 - **Fusion:** the bi-encoder and reranker scores are standardised within the top 10 and added. Their weights are picked on held-out training rows, never on validation.
 - **Not in the table:** larger reranker experiments that did not improve results (MiniLM-L12, Qwen3-Reranker-0.6B and 4B). One sentence in the report covers them.
 
 ### Procedure
 
 1. Regenerate the 2,500 validation and test Llama questions with the neutral prompt.
-2. Pick the model sizes on validation.
-3. Train conditions 4 and 7 with 3 seeds.
+2. Fine-tune the 3 first-stage candidates with 1 seed each, and pick one on validation. Screen `mxbai-rerank-large-v1` off the shelf. Then fine-tune the 3 reranker candidates on the chosen first stage's top k with 1 seed each, and pick one.
+3. Train 2 more seeds of each winner, so conditions 4 and 7 each have 3 seeds. That makes 10 training runs in total.
+
+**Agent token budget.** Training runs unattended under a driver script that retries on failure and writes a final status line. Agents check the run's log at most every 30 minutes, with one short command and a one-line report. They do not watch the run, poll it in tight loops or reread large notebook outputs.
 4. Score every condition once on the test set (2,000 questions) with the Llama, Qwen and keyword questions. Run a paired bootstrap against conditions 1, 2 and 3, and measure CPU and GPU time per question.
 5. Claude reference: a random 500 test Llama questions, sent through the Batch API with the whole 200-page history. Our final model is scored on the same 500. It needs an Anthropic API key, stored SOPS-encrypted and run with `with-secrets`.
 6. Write the report: `results/scores.md` and the README.
