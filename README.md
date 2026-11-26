@@ -445,7 +445,8 @@ The final experiment and the move into the app are planned in [`PLAN.md`](PLAN.m
    - score conditions 1–8 once on test (Llama, Qwen and keyword questions, with a paired bootstrap and latency);
    - write the report.
 2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:** a retrieval-augmented generation (RAG) design.
-   - One trained retriever makes the language decisions. Its reranker reads each candidate's visit time written as text, such as "1 day ago", so it can answer date questions.
+   - The fine-tuned first stage keeps a large top k for high recall.
+   - The fine-tuned reranker reads each candidate with its history features written as text (visit time such as "1 day ago", visit count, clicks, opened from a search). It makes the language and time decisions.
    - The local LLM only writes the reply.
    - Training uses the user's own history.
 

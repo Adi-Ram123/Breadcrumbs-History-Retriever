@@ -7,9 +7,9 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 **Research question:** when people ask an assistant about their browsing history in their own words, which retriever returns the page they mean? Each question ranks its own 200-page history (the answer, 100 BM25 look-alikes of it, 99 random pages). Part 1 explores the approach only: there is no time handling and there are no synthetic timestamps.
 
 **Two stages, each judged by its own job.**
-- The **first stage** (bi-encoder) must get the answer into a short list. It is judged by Recall@k for k = 10, 20, 50 and 100, which is the ceiling for the reranker.
+- The **first stage** (bi-encoder) must get the answer into a short list. It is judged by Recall@k for k = 10, 20, 50 and 100, which is the ceiling for the reranker. In the app it must lose almost no correct pages.
 - The **reranker** must put the answer first. It is judged by Recall@1, with MRR breaking ties, after reordering the first stage's top k.
-- Recall@5 is also reported. The report shows reranker latency for each k, so that Part 2 can choose k for the app.
+- Recall@5 is also reported. The report shows reranker Recall@1 and latency for each k up to 50, so that Part 2 can choose k for the app.
 
 ### Questions
 
@@ -51,8 +51,11 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 The app becomes a retrieval-augmented generation (RAG) system. One trained retriever makes every language decision, and the LLM only writes the reply. There is no parser and no combiner. Nothing is pushed until the owner reviews it. Changes to Daniel's areas are kept in separate commits.
 
 ```text
-question + now ─► first stage: top k by meaning + recent entries ─► reranker reads "title | url | visited 1 day ago · Tue evening · Nov 24"
-              ─► top 10 with visit times ─► LLM writes the answer, citing only those entries
+question + now ─► first stage: fine-tuned bi-encoder, text only, top k by meaning (k chosen for very high recall, e.g. 50)
+                  + the most recent entries (so questions about time alone are never missed)
+               ─► reranker reads question + each candidate as one text, features included:
+                  "title | url | searched 1 day ago, Tue 9:14 pm | 3 visits | opened from search | 2 min on page"
+               ─► top 10 ─► LLM writes the answer, citing only those entries
 ```
 
 1. **Integration.**
@@ -60,13 +63,16 @@ question + now ─► first stage: top k by meaning + recent entries ─► rera
    - Implement `load_embedder`, with the query prefix on the question side.
    - Add a reranker step in the executor.
    - The answer writer receives the top 10 entries with their visit times.
-2. **Time handled by the retriever.**
-   - Page vectors are computed once, so the first stage cannot judge time itself. Its candidates are therefore the top k by meaning plus the recent entries, so that time questions are not missed.
-   - The reranker reads each candidate's visit time written as text when the question is asked ("1 day ago", weekday, time of day, date). It matches that to phrases such as "yesterday" or "last week".
+2. **Features as text, no extra model parts.**
+   - The first stage stays text only. Its job is high recall: k is set from Part 1's Recall@k curve, so the right page is almost never cut.
+   - The reranker reads each candidate's features written as text, built when the question is asked: visit time (relative, weekday, time of day, date), visit count, clicks, whether it was opened from a search, and time on page.
+   - A new feature is one more phrase in that text. There is no parser, no combiner and no per-feature head.
+   - Known limit: a question about an old date with no topic ("what did I search on March 3?") depends on the first stage finding something by meaning.
 3. **Real training on the user's data.**
-   - The reranker is fine-tuned on the user's history: re-finding events and later side-panel clicks.
-   - Time-phrase questions are written for real visit times. They teach what "yesterday" means, not the user's habits.
+   - The reranker is fine-tuned with the features in its input, on re-finding events from the user's history and later side-panel clicks.
+   - Time-phrase questions are written for real visit times, so the reranker learns what "yesterday" means.
    - Training uses earlier months and testing uses later ones.
 4. **Evaluation.**
    - The app's dev questions, including date questions written by the user, scored by Recall@1 and Recall@5 and by date accuracy.
+   - First-stage recall at the chosen k is also reported.
    - The comparison is against stock all-MiniLM and against a Claude call given the same history.
