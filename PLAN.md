@@ -47,8 +47,13 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
     - **`mxbai-rerank-large-v1`** (435M, DeBERTa-v3-large). Mixedbread reports it is among the strongest open rerankers on BEIR. It still needs an off-the-shelf screen first, which takes minutes.
     - **`gte-reranker-modernbert-base`** (149M, ModernBERT). Recall@1 0.754 at 30 ms, within 1.6 points of v2-m3, with an 8k context that fits page-text chunks.
   - **Selection:**
-    - The most accurate fine-tuned candidate wins: Recall@1 for the reranker, Recall@10 and Recall@50 for the first stage.
-    - Speed decides only when two candidates are within 1 point, or when the winner breaks the latency budget at the app's k. The budget is about 250 ms per question for the reranker.
+    - The most accurate fine-tuned candidate wins.
+      - Reranker: Recall@1, then MRR.
+      - First stage: Recall@10 and Recall@50, but when they are saturated (all candidates within 1 point), Recall@1 and MRR on the Llama and keyword questions decide.
+    - Speed decides only when it is a real application constraint: the winner breaks the latency budget at the app's k (about 250 ms per question for the reranker), or it is at least 1.5× slower than a candidate within 0.5 points.
+    - Timing differences under 20% are noise and never decide.
+    - **Correction (Nov 26):** the first pick (mxbai, chosen on a 1% speed difference) is replaced by `snowflake-arctic-embed-l-v2.0`, which leads on Recall@1, MRR and the keyword queries.
+    - **Data size check:** snowflake is fine-tuned once on all usable question rows (about 200k), not 50k. The 2 extra seeds use whichever size wins.
     - The winner must not lose on the keyword queries.
     - Only the winner of each stage gets the 2 extra seeds.
   - **Screened, then dropped:**
