@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "EXPERIMENT": "all-rows",
+    "NEGATIVES": "lookalike",
+    "N_NEGATIVES": 1,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": null,
+    "HALF_PRECISION": true,
+    "EARLY_STOP": [
+      0.708,
+      0.626
+    ],
+    "RERANKER_TRAINED": "models/trained/reranker_cross-encoder-minilm12",
+    "RERANK_TOP_K": 10
+  },
+  "note": "Stopped by the coordinator at about step 1,330 of 1,992 (196,012 question + 58,896 keyword rows); only the 1/3 (~65k question rows) and 2/3 (~131k) validation points exist. No finished model, no reranking.",
+  "validation": {
+    "exp_all-rows_third1": {
+      "recall@1": 0.712,
+      "recall@5": 0.91,
+      "mrr": 0.8000478203168586
+    },
+    "exp_all-rows_third1_qwen": {
+      "recall@1": 0.72,
+      "recall@5": 0.918,
+      "mrr": 0.8074461260706317
+    },
+    "exp_all-rows_third1_keyword": {
+      "recall@1": 0.642,
+      "recall@5": 0.878,
+      "mrr": 0.7518139147568325
+    },
+    "exp_all-rows_third2": {
+      "recall@1": 0.724,
+      "recall@5": 0.92,
+      "mrr": 0.8093403680838274
+    },
+    "exp_all-rows_third2_qwen": {
+      "recall@1": 0.736,
+      "recall@5": 0.928,
+      "mrr": 0.8183487165332762
+    },
+    "exp_all-rows_third2_keyword": {
+      "recall@1": 0.642,
+      "recall@5": 0.886,
+      "mrr": 0.7511017487657924
+    }
+  }
+}

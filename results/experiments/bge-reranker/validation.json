@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "EXPERIMENT": "bge-reranker",
+    "URL_WORDS": false,
+    "NEGATIVES": "lookalike",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": 10000,
+    "HALF_PRECISION": true,
+    "RERANKER": "BAAI/bge-reranker-base",
+    "RERANK_TOP_K": 10,
+    "RERANK_KEYWORDS": true
+  },
+  "validation": {
+    "bm25": {
+      "recall@1": 0.476,
+      "recall@5": 0.708,
+      "mrr": 0.5824679455346123
+    },
+    "bm25_qwen": {
+      "recall@1": 0.472,
+      "recall@5": 0.69,
+      "mrr": 0.5788034538842328
+    },
+    "bm25_keyword": {
+      "recall@1": 0.39,
+      "recall@5": 0.62,
+      "mrr": 0.4989816296283515
+    },
+    "bge_base": {
+      "recall@1": 0.654,
+      "recall@5": 0.896,
+      "mrr": 0.764038756188632
+    },
+    "bge_base_qwen": {
+      "recall@1": 0.622,
+      "recall@5": 0.874,
+      "mrr": 0.732976508743046
+    },
+    "bge_base_keyword": {
+      "recall@1": 0.552,
+      "recall@5": 0.858,
+      "mrr": 0.6830325504417786
+    },
+    "exp_lookalike-negatives": {
+      "recall@1": 0.708,
+      "recall@5": 0.92,
+      "mrr": 0.7982902858775159
+    },
+    "exp_lookalike-negatives_qwen": {
+      "recall@1": 0.708,
+      "recall@5": 0.912,
+      "mrr": 0.7997560945772824
+    },
+    "exp_lookalike-negatives_keyword": {
+      "recall@1": 0.626,
+      "recall@5": 0.874,
+      "mrr": 0.7387907257361159
+    },
+    "pretrained_k10": {
+      "recall@1": 0.638,
+      "recall@5": 0.896,
+      "mrr": 0.7500180636552937,
+      "ms_per_question": 69.48648921798849
+    },
+    "pretrained_k10_keyword": {
+      "recall@1": 0.586,
+      "recall@5": 0.864,
+      "mrr": 0.7083835828789732,
+      "ms_per_question": 68.73864233600672
+    },
+    "early_stop": {
+      "stopped_at_step": 271,
+      "max_steps": 812,
+      "reason": "1/3 check: Llama Recall@1 0.708 not above 0.738; keyword 0.608 below the first stage 0.626"
+    },
+    "reranker_third1_k10": {
+      "recall@1": 0.708,
+      "recall@5": 0.908,
+      "mrr": 0.7956140954013254
+    },
+    "reranker_third1_k10_keyword": {
+      "recall@1": 0.608,
+      "recall@5": 0.882,
+      "mrr": 0.7253391384345287
+    }
+  }
+}

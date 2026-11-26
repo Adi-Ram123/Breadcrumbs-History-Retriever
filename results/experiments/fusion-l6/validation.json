@@ -1,0 +1,182 @@
+{
+  "settings": {
+    "EXPERIMENT": "fusion-l6",
+    "URL_WORDS": false,
+    "NEGATIVES": "lookalike",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": 50000,
+    "HALF_PRECISION": true,
+    "RERANKER": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "RERANK_TOP_K": 20,
+    "RERANK_KEYWORDS": false,
+    "RERANKER_RUN": "reranker_cross-encoder-minilm",
+    "FUSION": true
+  },
+  "validation": {
+    "reranker_third1_k20": {
+      "recall@1": 0.72,
+      "recall@5": 0.912,
+      "mrr": 0.8052325816536352
+    },
+    "reranker_third2_k20": {
+      "recall@1": 0.706,
+      "recall@5": 0.92,
+      "mrr": 0.801437854975085
+    },
+    "reranker_third3_k20": {
+      "recall@1": 0.71,
+      "recall@5": 0.918,
+      "mrr": 0.8016391573878425
+    },
+    "first_stage": {
+      "recall@1": 0.708,
+      "recall@5": 0.92,
+      "mrr": 0.7982902858775159
+    },
+    "reranker_k10": {
+      "recall@1": 0.722,
+      "recall@5": 0.926,
+      "mrr": 0.8097855239727539
+    },
+    "fusion_k10": {
+      "recall@1": 0.748,
+      "recall@5": 0.928,
+      "mrr": 0.8295521906394205,
+      "w_bi": 0.3,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k10": {
+      "recall@1": 0.742,
+      "recall@5": 0.928,
+      "mrr": 0.8263101271473571,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "w_bm25": 0.1
+    },
+    "reranker_k20": {
+      "recall@1": 0.712,
+      "recall@5": 0.918,
+      "mrr": 0.8025668630155481,
+      "ms_per_question": 42.82938957999431
+    },
+    "fusion_k20": {
+      "recall@1": 0.748,
+      "recall@5": 0.932,
+      "mrr": 0.8307601493473794,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k20": {
+      "recall@1": 0.748,
+      "recall@5": 0.932,
+      "mrr": 0.8307601493473794,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "first_stage_qwen": {
+      "recall@1": 0.708,
+      "recall@5": 0.912,
+      "mrr": 0.7997560945772824
+    },
+    "reranker_k10_qwen": {
+      "recall@1": 0.698,
+      "recall@5": 0.918,
+      "mrr": 0.7959346660058539
+    },
+    "fusion_k10_qwen": {
+      "recall@1": 0.72,
+      "recall@5": 0.924,
+      "mrr": 0.8135521263233143,
+      "w_bi": 0.3,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k10_qwen": {
+      "recall@1": 0.73,
+      "recall@5": 0.926,
+      "mrr": 0.817971173942362,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "w_bm25": 0.1
+    },
+    "reranker_k20_qwen": {
+      "recall@1": 0.688,
+      "recall@5": 0.92,
+      "mrr": 0.7885030882269077,
+      "ms_per_question": 40.313724903997354
+    },
+    "fusion_k20_qwen": {
+      "recall@1": 0.72,
+      "recall@5": 0.93,
+      "mrr": 0.8145682258670454,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k20_qwen": {
+      "recall@1": 0.72,
+      "recall@5": 0.93,
+      "mrr": 0.8145682258670454,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "first_stage_keyword": {
+      "recall@1": 0.626,
+      "recall@5": 0.874,
+      "mrr": 0.7387907257361159
+    },
+    "reranker_k10_keyword": {
+      "recall@1": 0.624,
+      "recall@5": 0.892,
+      "mrr": 0.7425899320853223
+    },
+    "fusion_k10_keyword": {
+      "recall@1": 0.64,
+      "recall@5": 0.902,
+      "mrr": 0.7563891384345286,
+      "w_bi": 0.3,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k10_keyword": {
+      "recall@1": 0.636,
+      "recall@5": 0.9,
+      "mrr": 0.7520891384345286,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "w_bm25": 0.1
+    },
+    "reranker_k20_keyword": {
+      "recall@1": 0.616,
+      "recall@5": 0.884,
+      "mrr": 0.7355696282061949,
+      "ms_per_question": 39.57264001599833
+    },
+    "fusion_k20_keyword": {
+      "recall@1": 0.638,
+      "recall@5": 0.902,
+      "mrr": 0.7566396221011887,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    },
+    "fusion_bm25_k20_keyword": {
+      "recall@1": 0.638,
+      "recall@5": 0.902,
+      "mrr": 0.7566396221011887,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "w_bm25": 0
+    }
+  }
+}
