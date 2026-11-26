@@ -1,0 +1,106 @@
+{
+  "settings": {
+    "EXPERIMENT": "first-stage-mxbai-seed2",
+    "BASE_MODEL": "mixedbread-ai/mxbai-embed-large-v1",
+    "URL_WORDS": false,
+    "NEGATIVES": "lookalike",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "MINI_BATCH_SIZE": 128,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_SEED": 2,
+    "TRAIN_ROWS": 50000,
+    "HALF_PRECISION": true,
+    "RERANKER": null,
+    "RERANK_TOP_K": 20,
+    "RERANK_KEYWORDS": false,
+    "SCREEN": false
+  },
+  "validation": {
+    "bm25": {
+      "recall@1": 0.522,
+      "recall@5": 0.766,
+      "recall@10": 0.832,
+      "recall@20": 0.884,
+      "recall@50": 0.938,
+      "recall@100": 0.976,
+      "mrr": 0.6322945618989113
+    },
+    "bm25_qwen": {
+      "recall@1": 0.518,
+      "recall@5": 0.73,
+      "recall@10": 0.822,
+      "recall@20": 0.866,
+      "recall@50": 0.918,
+      "recall@100": 0.958,
+      "mrr": 0.6185092547796868
+    },
+    "bm25_keyword": {
+      "recall@1": 0.39,
+      "recall@5": 0.62,
+      "recall@10": 0.698,
+      "recall@20": 0.792,
+      "recall@50": 0.87,
+      "recall@100": 0.92,
+      "mrr": 0.4989816296283515
+    },
+    "mxbai-embed-large-v1": {
+      "recall@1": 0.752,
+      "recall@5": 0.956,
+      "recall@10": 0.978,
+      "recall@20": 0.986,
+      "recall@50": 0.996,
+      "recall@100": 0.998,
+      "mrr": 0.8382591891551712
+    },
+    "mxbai-embed-large-v1_qwen": {
+      "recall@1": 0.73,
+      "recall@5": 0.952,
+      "recall@10": 0.97,
+      "recall@20": 0.984,
+      "recall@50": 0.998,
+      "recall@100": 0.998,
+      "mrr": 0.8229407980488566
+    },
+    "mxbai-embed-large-v1_keyword": {
+      "recall@1": 0.592,
+      "recall@5": 0.876,
+      "recall@10": 0.94,
+      "recall@20": 0.962,
+      "recall@50": 0.99,
+      "recall@100": 0.998,
+      "mrr": 0.7193331079976634
+    },
+    "exp_first-stage-mxbai-seed2": {
+      "recall@1": 0.766,
+      "recall@5": 0.966,
+      "recall@10": 0.98,
+      "recall@20": 0.988,
+      "recall@50": 0.994,
+      "recall@100": 0.998,
+      "mrr": 0.8533252709279024
+    },
+    "exp_first-stage-mxbai-seed2_qwen": {
+      "recall@1": 0.78,
+      "recall@5": 0.968,
+      "recall@10": 0.98,
+      "recall@20": 0.988,
+      "recall@50": 0.998,
+      "recall@100": 1.0,
+      "mrr": 0.8616253875351702
+    },
+    "exp_first-stage-mxbai-seed2_keyword": {
+      "recall@1": 0.652,
+      "recall@5": 0.914,
+      "recall@10": 0.948,
+      "recall@20": 0.978,
+      "recall@50": 0.986,
+      "recall@100": 1.0,
+      "mrr": 0.7685548600590205
+    }
+  }
+}

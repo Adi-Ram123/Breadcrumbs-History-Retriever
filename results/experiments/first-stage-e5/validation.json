@@ -1,0 +1,106 @@
+{
+  "settings": {
+    "EXPERIMENT": "first-stage-e5",
+    "BASE_MODEL": "intfloat/e5-large-v2",
+    "URL_WORDS": false,
+    "NEGATIVES": "lookalike",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "MINI_BATCH_SIZE": 128,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_SEED": 0,
+    "TRAIN_ROWS": 50000,
+    "HALF_PRECISION": true,
+    "RERANKER": null,
+    "RERANK_TOP_K": 20,
+    "RERANK_KEYWORDS": false,
+    "SCREEN": false
+  },
+  "validation": {
+    "bm25": {
+      "recall@1": 0.522,
+      "recall@5": 0.766,
+      "recall@10": 0.832,
+      "recall@20": 0.884,
+      "recall@50": 0.938,
+      "recall@100": 0.976,
+      "mrr": 0.6322945618989113
+    },
+    "bm25_qwen": {
+      "recall@1": 0.518,
+      "recall@5": 0.73,
+      "recall@10": 0.822,
+      "recall@20": 0.866,
+      "recall@50": 0.918,
+      "recall@100": 0.958,
+      "mrr": 0.6185092547796868
+    },
+    "bm25_keyword": {
+      "recall@1": 0.39,
+      "recall@5": 0.62,
+      "recall@10": 0.698,
+      "recall@20": 0.792,
+      "recall@50": 0.87,
+      "recall@100": 0.92,
+      "mrr": 0.4989816296283515
+    },
+    "e5-large-v2": {
+      "recall@1": 0.73,
+      "recall@5": 0.944,
+      "recall@10": 0.966,
+      "recall@20": 0.986,
+      "recall@50": 0.998,
+      "recall@100": 0.998,
+      "mrr": 0.8220783165311034
+    },
+    "e5-large-v2_qwen": {
+      "recall@1": 0.72,
+      "recall@5": 0.926,
+      "recall@10": 0.962,
+      "recall@20": 0.988,
+      "recall@50": 1.0,
+      "recall@100": 1.0,
+      "mrr": 0.8102928158579623
+    },
+    "e5-large-v2_keyword": {
+      "recall@1": 0.61,
+      "recall@5": 0.882,
+      "recall@10": 0.936,
+      "recall@20": 0.974,
+      "recall@50": 0.992,
+      "recall@100": 1.0,
+      "mrr": 0.7325133180048474
+    },
+    "exp_first-stage-e5": {
+      "recall@1": 0.78,
+      "recall@5": 0.964,
+      "recall@10": 0.982,
+      "recall@20": 0.986,
+      "recall@50": 0.994,
+      "recall@100": 0.998,
+      "mrr": 0.8623528972754533
+    },
+    "exp_first-stage-e5_qwen": {
+      "recall@1": 0.778,
+      "recall@5": 0.958,
+      "recall@10": 0.976,
+      "recall@20": 0.992,
+      "recall@50": 0.998,
+      "recall@100": 1.0,
+      "mrr": 0.8585837540920782
+    },
+    "exp_first-stage-e5_keyword": {
+      "recall@1": 0.662,
+      "recall@5": 0.926,
+      "recall@10": 0.96,
+      "recall@20": 0.976,
+      "recall@50": 0.988,
+      "recall@100": 0.998,
+      "mrr": 0.7761394913039432
+    }
+  }
+}
