@@ -28,17 +28,21 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
 |---|---|
 | 1 | BM25 |
 | 2 | all-MiniLM-L6-v2, off the shelf (the app's current default embedder) |
-| 3 | bge bi-encoder, off the shelf |
-| 4 | bge bi-encoder, fine-tuned (look-alike hard negatives) |
+| 3 | First-stage bi-encoder, off the shelf |
+| 4 | First-stage bi-encoder, fine-tuned (look-alike hard negatives) |
 | 5 | Hybrid: BM25 + fine-tuned bi-encoder, reciprocal rank fusion |
-| 6 | Fine-tuned bi-encoder + bge reranker **off the shelf** on its top 10, scores fused |
-| 7 | Fine-tuned bi-encoder + bge reranker **fine-tuned** on its top 10, scores fused (**final model**) |
+| 6 | Fine-tuned bi-encoder + reranker **off the shelf** on its top k, scores fused |
+| 7 | Fine-tuned bi-encoder + reranker **fine-tuned** on its top k, scores fused (**final model**) |
 | 8 | Claude, hosted, ranking the whole 200-page history (reference only, never part of the app) |
 
-- **Why two models in 6 and 7:** the bi-encoder embeds every page once, so a question costs one dot product per page and scales to large histories. The reranker (a cross-encoder) reads the question and a page together, which is more accurate but costs one model pass per page, so it only reorders the bi-encoder's top 10. Both come from the BGE family.
-- **Model sizes, chosen once on validation and fixed before any result is seen:**
-  - bi-encoder: `bge-base-en-v1.5` (110M) or `bge-large-en-v1.5` (335M), chosen by Recall@k. Large is used only if it wins by at least 2 points without losing on the keyword queries.
-  - reranker: `bge-reranker-base` (278M) or `bge-reranker-v2-m3` (568M), chosen by Recall@1, with reranking under about 250 ms per question at k = 10 on the Mac GPU.
+- **Why two models in 6 and 7:** the bi-encoder embeds every page once, so a question costs one dot product per page and scales to large histories. The reranker (a cross-encoder) reads the question and a page together, which is more accurate but costs one model pass per page, so it only reorders the bi-encoder's top 10. The models are picked by the screening below.
+- **Model choice: screen widely, fine-tune few, decide once on validation.** Each candidate is first scored off the shelf on the new validation questions (minutes each). Only models that load without running custom code from the model repository are used.
+  - **First stage candidates:** `bge-base-en-v1.5` (110M), `bge-large-en-v1.5` (335M), `mxbai-embed-large-v1` (335M), `e5-large-v2` (335M), `snowflake-arctic-embed-l-v2.0` (568M) and `Qwen3-Embedding-0.6B` (600M, built on an LLM).
+    - The top 2 by off-the-shelf Recall@10 and Recall@50 are fine-tuned.
+    - A larger model is kept only if it wins by at least 2 points without losing on the keyword queries.
+  - **Reranker candidates:** `bge-reranker-base` (278M), `bge-reranker-v2-m3` (568M), `Qwen3-Reranker-0.6B` (600M, LLM-based), `gte-reranker-modernbert-base` (149M) and `ms-marco-MiniLM-L6` (22M, speed reference).
+    - The top 2 by off-the-shelf Recall@1, among those under about 250 ms per question at k = 10, are fine-tuned on the chosen first stage's top-k mistakes.
+  - The screening goes into an appendix table. The results table shows one first stage and one reranker.
 - **Fusion:** the bi-encoder and reranker scores are standardised within the top 10 and added. Their weights are picked on held-out training rows, never on validation.
 - **Not in the table:** larger reranker experiments that did not improve results (MiniLM-L12, Qwen3-Reranker-0.6B and 4B). One sentence in the report covers them.
 
