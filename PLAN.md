@@ -87,7 +87,19 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
   - Option 1 (features as text) is trained first. Option 2 (features as data) trains overnight. If Option 2 is not ready by Friday midday, Option 1 ships and the report says Option 2 is pending.
   - Real training uses re-finding events only. Side-panel clicks are added later, because they need weeks of use.
   - The Claude comparison is skipped for now, in both parts.
-  - The user writes about 30 dev questions with dates against their own history by Friday morning.
+  - **No user input.** Everything runs autonomously, and no step waits for the owner. The dev and test questions are generated, not hand-written.
+  - **Question mix (training and evaluation):** generated from the user's real history, with labelled types, so results are reported for each type, not only overall.
+    - Topic only, no constraint: "the ramen recipe I looked at".
+    - Time only: "what did I open yesterday evening?".
+    - Topic plus time: "the flight deal from last Tuesday".
+    - Kind: search vs visit ("what did I search about tax forms?").
+    - Site or source: "the GitHub issue about the login bug".
+    - Order and recency: "the last movie I watched", "the first page I opened this morning".
+    - Frequency: "the docs page I keep going back to".
+    - Vague or paraphrased, with no title words.
+    - No answer: the page is not in the history, and the system should say so rather than cite something.
+  - **Writers:** training questions are written by the local Qwen. Dev and test questions are written by a different local model (Llama, as in Part 1), so the reranker cannot learn one writer's habits. Train on earlier months and test on later ones.
+  - **Report per type:** Recall@1, Recall@5 and first-stage recall at k for each question type, date accuracy for the types with a time constraint, and the no-answer rate for the no-answer type. All are compared against stock all-MiniLM.
 - **GPU:** every GPU job still goes through `$TMPDIR/gpu_run.sh`. The Part 1 runs go first.
 
 ## Part 2: the app (`Adi-Ram123/Breadcrumbs-History-Assistant`, local branch `model`)
