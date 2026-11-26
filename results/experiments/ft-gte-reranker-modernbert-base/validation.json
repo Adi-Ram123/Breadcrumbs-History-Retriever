@@ -1,0 +1,101 @@
+{
+  "settings": {
+    "EXPERIMENT": "ft-gte-reranker-modernbert-base",
+    "URL_WORDS": false,
+    "NEGATIVES": "question",
+    "N_NEGATIVES": 1,
+    "LEARNING_RATE": 2e-05,
+    "EPOCHS": 1,
+    "BATCH_SIZE": 128,
+    "CACHED_LOSS": false,
+    "SCORE_CUTOFF": "drop10",
+    "RUN_FINAL": false,
+    "TRAIN_ROWS": null,
+    "HALF_PRECISION": true,
+    "RERANKER": "Alibaba-NLP/gte-reranker-modernbert-base",
+    "RERANK_TOP_K": 10,
+    "RERANK_KEYWORDS": true,
+    "SCREEN": false,
+    "FIRST_STAGE": "/Users/adiram/Desktop/Breadcrumbs-History-Retriever__worktrees/first-stage/models/trained/exp_first-stage-mxbai",
+    "RERANK_ROWS": 50000,
+    "RERANK_SEED": 0,
+    "RERANK_MAX_STEPS": -1
+  },
+  "validation": {
+    "first_stage": {
+      "recall@1": 0.76,
+      "recall@5": 0.962,
+      "mrr": 0.8480935135612201,
+      "recall@10": 0.976,
+      "recall@20": 0.988,
+      "recall@50": 0.994
+    },
+    "reranker_third1_k10": {
+      "recall@1": 0.784,
+      "recall@5": 0.962,
+      "mrr": 0.8636657357834424
+    },
+    "reranker_third2_k10": {
+      "recall@1": 0.808,
+      "recall@5": 0.966,
+      "mrr": 0.8763601802278868
+    },
+    "reranker_third3_k10": {
+      "recall@1": 0.806,
+      "recall@5": 0.966,
+      "mrr": 0.8769014500691567
+    },
+    "pretrained_k10": {
+      "recall@1": 0.754,
+      "recall@5": 0.95,
+      "mrr": 0.8377339897516963,
+      "ms_per_question": 42.20169290638296
+    },
+    "reranker_k10": {
+      "recall@1": 0.804,
+      "recall@5": 0.966,
+      "mrr": 0.8758816087993152,
+      "ms_per_question": 40.2440824842779
+    },
+    "reranker_k20": {
+      "recall@1": 0.802,
+      "recall@5": 0.972,
+      "mrr": 0.8742964217641284,
+      "ms_per_question": 82.50882707434357
+    },
+    "reranker_k50": {
+      "recall@1": 0.8,
+      "recall@5": 0.966,
+      "mrr": 0.870296597739796,
+      "ms_per_question": 212.7792095861514
+    },
+    "reranker_k200": {
+      "recall@1": 0.8,
+      "recall@5": 0.958,
+      "mrr": 0.86884664443168,
+      "ms_per_question": 902.2822873483237
+    },
+    "first_stage_qwen": {
+      "recall@1": 0.78,
+      "recall@5": 0.966,
+      "mrr": 0.8573764122992845
+    },
+    "reranker_k10_qwen": {
+      "recall@1": 0.806,
+      "recall@5": 0.97,
+      "mrr": 0.8756795869024592,
+      "ms_per_question": 36.287458696227986
+    },
+    "first_stage_keyword": {
+      "recall@1": 0.656,
+      "recall@5": 0.912,
+      "mrr": 0.7698975051024666
+    },
+    "reranker_k10_keyword": {
+      "recall@1": 0.662,
+      "recall@5": 0.904,
+      "mrr": 0.7701863939913556,
+      "ms_per_question": 32.726932476158254
+    }
+  }
+}
