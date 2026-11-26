@@ -38,14 +38,18 @@ flowchart LR
 | --- | --- | --- |
 | 1 | BM25 (k1 = 1.2, b = 0.75) | **Baseline.** Strong keyword search, a stronger version of the literal matching in Chrome's standard history search |
 | 2 | all-MiniLM-L6-v2, off the shelf | The embedder the Breadcrumbs app uses today |
-| 3 | bge bi-encoder, off the shelf | Dense retrieval without training |
-| 4 | bge bi-encoder, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
+| 3 | First-stage bi-encoder, off the shelf | Dense retrieval without training |
+| 4 | First-stage bi-encoder, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
 | 5 | Hybrid of 1 and 4 | Reciprocal rank fusion |
-| 6 | 4 + bge reranker, off the shelf, on the top 10 | Reads question and entry together, without training |
-| 7 | 4 + bge reranker, fine-tuned, on the top 10 | **Final model** (3 seeds); added after the error analysis |
+| 6 | 4 + reranker, off the shelf, on the top k | Reads question and entry together, without training |
+| 7 | 4 + reranker, fine-tuned, on the top k | **Final model** (3 seeds); added after the error analysis |
 | 8 | Claude ranking the whole history | Hosted reference on 500 test questions; never part of the app |
 
-The bi-encoder and reranker sizes (bge-base or bge-large; bge-reranker-base or bge-reranker-v2-m3) are chosen once on validation: the best Recall@1, with reranking under about 250 ms per question. Earlier exploratory conditions used bge-small; the RRF hybrid with the off-the-shelf model is dropped.
+**Model choice.** Both models are chosen once on validation, from a screening of candidates scored off the shelf.
+- **First-stage candidates:** bge-base/large, mxbai-embed-large, e5-large-v2, snowflake-arctic-embed-l-v2.0 and Qwen3-Embedding-0.6B.
+- **Reranker candidates:** bge-reranker-base, bge-reranker-v2-m3, Qwen3-Reranker-0.6B, gte-reranker-modernbert-base and ms-marco-MiniLM-L6.
+
+The top 2 of each are fine-tuned, and the winner is picked on validation: Recall@k for the first stage, Recall@1 for the reranker, with reranking under about 250 ms per question. Earlier exploratory conditions used bge-small; the RRF hybrid with the off-the-shelf model is dropped.
 
 ```mermaid
 flowchart LR
