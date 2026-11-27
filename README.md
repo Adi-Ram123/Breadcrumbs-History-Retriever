@@ -6,17 +6,21 @@ Browser history search matches the literal words typed against page titles and U
 
 The project runs locally in Jupyter notebooks on an Apple Silicon Mac. It is non-commercial coursework for CS 371N (Natural Language Processing).
 
-> **Status:** done. Every condition was scored once on the 2,000 test questions. The write-up, with figures, is [`report.md`](report.md); the full tables are in [`results/scores.md`](results/scores.md).
+> **Status:** done. Every approach was scored once on the 2,000 test questions. The write-up, with figures, is [`report.md`](report.md); the full tables are in [`results/scores.md`](results/scores.md).
 
-## Research question
+## Research question and hypotheses
 
-**When people ask about their browsing history in their own words, which retriever, and which way of fine-tuning it, returns the page they mean?**
+**When people ask about their browsing history in their own words, what is the best way to build and fine-tune a retriever so it returns the page they mean?**
 
-The test set stands in for those questions, and a retriever is judged on how often it puts the right page first. Rewriting search queries into questions is only how the project produces training data. It is a means, not the subject of the study.
+- **H1. Fine-tuning helps.** An embedding model fine-tuned on search clicks that an LLM rewrote into conversational questions finds the right page more often than keyword search (BM25) and than the same model without fine-tuning, on questions written by a different LLM.
+- **H2. The gain replicates.** Fine-tuning also helps a second embedding model.
+- **H3. A reranker fixes the ordering problem.** After fine-tuning, the right page is usually near the top but not first. A cross-encoder fine-tuned on the embedding model's own mistakes, reordering its top 10, puts it first more often.
+
+All three are supported; the evidence is in [Results](#results) and Section 1 of [`report.md`](report.md). Rewriting search queries into questions is only how the project produces training data. It is a means, not the subject of the study.
 
 ## Result
 
-The final model puts the right page first for **83.2%** of the 2,000 Llama-written test questions (95% CI 81.6–84.7). It is a fine-tuned `snowflake-arctic-embed-l-v2.0` bi-encoder, with a fine-tuned `gte-reranker-modernbert-base` cross-encoder reordering its top 10. That is +27.1 points over BM25, +13.8 over all-MiniLM-L6-v2 off the shelf, and +4.6 over snowflake off the shelf. Every 95% paired-bootstrap interval excludes zero. See [Results](#results).
+The final model puts the right page first for **83.2%** of the 2,000 Llama-written test questions (95% CI 81.6–84.7), with MRR 0.890. It is a fine-tuned `snowflake-arctic-embed-l-v2.0` embedding model, with a fine-tuned `gte-reranker-modernbert-base` cross-encoder reordering its top 10. Keyword search (BM25) manages 56.1%.
 
 ## How it works
 
@@ -27,56 +31,38 @@ Biography | imdb.com/name/nm0025309/bio
 ```
 
 The retriever has two stages:
-- **First stage:** a bi-encoder embeds every entry once, scores all of them against the question by dot product, and keeps the top 10.
+- **Embedding model:** embeds every entry once, scores all of them against the question by vector similarity, and keeps the top 10.
 - **Reranker:** a cross-encoder reads the question and each of those 10 entries together.
 
-The final score combines both: `w · z(bi-encoder) + z(reranker)`, where z standardises each model's scores within the 10 and `w` is fitted on held-out training rows.
+The final score combines both: `w · z(embedding) + z(reranker)`, where z standardises each model's scores within the 10 and `w` is fitted on held-out training rows.
 
 ```mermaid
 flowchart LR
-    Q["Question<br/>'that biography of the<br/>Good Times actor'"] --> S1["Stage 1: bi-encoder<br/>scores every entry"]
+    Q["Question<br/>'that biography of the<br/>Good Times actor'"] --> S1["Stage 1: embedding model<br/>scores every entry"]
     H[("Browsing history<br/>title | url per entry")] --> S1
     S1 -->|top 10| S2["Stage 2: cross-encoder<br/>reads question + entry"]
-    S2 --> F["Score fusion<br/>w·z(bi) + z(cross)"]
+    S2 --> F["Combine both scores"]
     F --> L["Ranked list<br/>1. Biography | imdb.com/name/nm0025309/bio<br/>2. John Amos - Wikipedia | en.wikipedia.org/...<br/>3. ..."]
 ```
 
-### Conditions compared
+### The approach, step by step
 
-| # | Condition | Role |
-| --- | --- | --- |
-| 1 | BM25 (k1 = 1.2, b = 0.75) | **Baseline.** Strong keyword search, a stronger version of the literal matching in Chrome's history search |
-| 2 | all-MiniLM-L6-v2, off the shelf | A widely used small embedding model |
-| 3 | snowflake-arctic-embed-l-v2.0, off the shelf | Dense retrieval without training |
-| 4 | snowflake, fine-tuned on the rewritten questions | **The method under test** (3 seeds) |
-| 5 | Hybrid of 1 and 4 | Reciprocal rank fusion |
-| 6 | 4 + gte reranker, off the shelf, top 10, fused | A reranker without training |
-| 7 | 4 + gte reranker, fine-tuned, top 10, fused | **Final model** (3 seeds) |
-| A | mxbai-embed-large-v1, fine-tuned | Replication on a second embedding model (3 seeds) |
+| Step | Approach | Why we tried it | Test Recall@1 |
+| --- | --- | --- | --- |
+| 1 | Keyword search (BM25, k1 = 1.2, b = 0.75) | Baseline: a stronger version of the literal matching in Chrome's history search | 0.561 |
+| 2 | Embedding model, off the shelf | Matches meaning, not words | 0.785 |
+| 3 | The same model, fine-tuned on the rewritten questions | **The method under test (H1)** | 0.806 |
+| 4 | 3 + fine-tuned reranker on its top 10 | Step 3 has the answer in its top 10 for 98% of questions but first for only 81% (H3) | **0.832** |
 
-| Comparison | Question it answers |
-| --- | --- |
-| 2, 3 vs 1 | Does dense retrieval beat keyword search? |
-| **4 vs 3** | **Does fine-tuning on the rewritten questions help?** The model is identical; only the training differs. |
-| 5 vs 4 | After fine-tuning, does adding BM25 still help? |
-| 6, 7 vs 4 | Does a reranker help, and does it need fine-tuning? |
-| A vs 4 | Does the fine-tuning gain hold on another model? |
+Also tried:
+- Merging BM25's ranking with step 3's (reciprocal rank fusion): 0.682, worse than step 3 alone.
+- The reranker without fine-tuning: 0.819.
 
-### Model choice
+**Choosing the models.** For each stage we fine-tuned several widely used open models and kept the one with the best validation Recall@1. Nothing was chosen on test.
+- **Embedding models:** bge-small, e5-large-v2, mxbai-embed-large-v1 and snowflake-arctic-embed-l-v2.0. Snowflake was chosen.
+- **Rerankers:** bge-reranker-v2-m3 and gte-reranker-modernbert-base. gte was chosen.
 
-Both stages were chosen on validation, never on test.
-
-1. **Small models first.** The original plan fine-tuned bge-small (33M). Recipe experiments gained at most 5.4 points of Recall@1 and plateaued near 0.71, so the project moved to larger models and added a reranker.
-2. **Screening.** Candidates were scored off the shelf on 500 validation questions:
-   - **First stage:** bge-base and bge-large, mxbai-embed-large-v1, e5-large-v2, snowflake-arctic-embed-l-v2.0, Qwen3-Embedding-0.6B and all-MiniLM-L6-v2.
-   - **Rerankers:** bge-reranker-base, bge-reranker-v2-m3, Qwen3-Reranker-0.6B, gte-reranker-modernbert-base, mxbai-rerank-large-v1 and ms-marco-MiniLM-L6-v2.
-3. **Fine-tuning.** The three most accurate first-stage models (snowflake, mxbai, e5) and the two most accurate rerankers (gte, v2-m3) were fine-tuned with one seed each.
-4. **Selection rules.**
-   - First stage: Recall@10 and Recall@50 were saturated (all three candidates within 1 point), so Recall@1 and MRR decided.
-   - Reranker: Recall@1 decided, with MRR breaking ties.
-5. **Chosen:** snowflake as the first stage and gte as the reranker, at k = 10. Each was then trained with 3 seeds.
-
-Section 5 of [`report.md`](report.md) has the figures behind each choice.
+Fine-tuning improved every embedding model (H2). Small models such as bge-small (33M) plateaued near 71% validation Recall@1, so the final model is a larger one (568M).
 
 ## Data
 
@@ -192,7 +178,7 @@ negative  John Amos - Wikipedia | en.wikipedia.org/wiki/John_Amos  ← look-alik
 
 The hard negative looks right but is wrong. Random pages from the batch are easy to reject on topic alone, while test histories contain same-topic and near-duplicate pages. Excluding every page in `clicked_dids` keeps pages the searcher actually opened from being taught as wrong. Every other question's positive and negative in the batch act as extra wrong answers (in-batch negatives).
 
-### First stage
+### Embedding model
 
 | Setting | Value |
 | --- | --- |
@@ -221,25 +207,23 @@ Each validation or test question ranks its own 200-entry history: the answer, 10
 | Metric | Meaning with one correct entry |
 | --- | --- |
 | Recall@1 (primary) | Is the answer ranked first? |
-| Recall@k, k = 5, 10, 20, 50, 100 | Is the answer in the top k? For the first stage, Recall@10 is the reranker's ceiling |
+| Recall@k, k = 5, 10, 20, 50, 100 | Is the answer in the top k? For the embedding model, Recall@10 is the reranker's ceiling |
 | MRR | 1 ÷ the answer's rank, averaged over questions; breaks Recall@1 ties |
 
 - **Statistics:**
-  - Fine-tuned conditions use 3 seeds.
-  - Each condition gets a 95% bootstrap confidence interval: 10,000 resamples of questions, with seeds averaged per question.
-  - Differences between conditions use a paired bootstrap on the same resamples.
+  - Fine-tuned models use 3 seeds.
+  - Each approach gets a 95% bootstrap confidence interval: 10,000 resamples of questions, with seeds averaged per question.
+  - Differences between approaches use a paired bootstrap on the same resamples.
 - **Validation only:** all choices (data size, hard negatives, models, fusion weight, reranker k) are made on validation or on held-out training rows. Test is scored once.
 - **Validation noise:** with 500 questions, Recall@1 has a standard error of about 2 points, so validation differences under about 3 points are treated as noise.
 
-### Success criteria
+### Hypotheses and evidence
 
-The proposal's target was a 10-point Recall@5 gain from fine-tuning a small model (bge-small) over BM25 and over the same model off the shelf. Off-the-shelf bge-small already scored 0.896 validation Recall@5, so a 10-point gain was impossible. Before any test run, the criteria became:
-
-- **Primary:** on the 2,000 Llama test questions, the fine-tuned first stage (4) and the final model (7) beat BM25 (1), all-MiniLM-L6-v2 (2) and the same bi-encoder off the shelf (3) on Recall@1. The paired-bootstrap 95% interval of each gain must exclude zero, and the gain must hold across all 3 seeds.
-- **Style gap:** the score on Qwen-written questions minus the score on Llama-written questions for the same pages stays small.
-- **Replication:** fine-tuning also helps a second embedding model.
-
-The primary criterion and the style gap were met. The replication was met in part: fine-tuning raised validation Recall@1 on all four models tried, but off-the-shelf mxbai was not scored on test. The full verdict is in Section 1 of [`report.md`](report.md).
+| Hypothesis | Evidence (test, 2,000 questions; 95% paired-bootstrap CI) | Verdict |
+| --- | --- | --- |
+| H1 | Fine-tuned vs BM25: Recall@1 0.806 vs 0.561 (+24.5 [+22.3, +26.7]). Vs the same model off the shelf: 0.806 vs 0.785 (+2.0 [+0.7, +3.4]); MRR 0.874 vs 0.855 | Supported |
+| H2 | Validation Recall@1 gain from fine-tuning: e5 +5.0, snowflake +1.6, mxbai +0.8, bge-small +5.4 (earlier round). On test, fine-tuned mxbai reaches 0.787; off-the-shelf mxbai was not scored on test | Supported on validation |
+| H3 | Fine-tuned model 0.806, plus fine-tuned reranker 0.832 (+2.6); reranker off the shelf 0.819; MRR 0.874 → 0.890 | Supported |
 
 ### Error analysis
 
@@ -262,9 +246,9 @@ An earlier analysis of 25 misses from bge-small is in [`results/error_analysis.m
 | --- | --- | --- |
 | Training questions | [Qwen3-30B-A3B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507), 4-bit MLX ([mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit](https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit)) | `data.ipynb`, every sampled row |
 | Validation and test questions | [Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct), 4-bit MLX ([mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit)) | `models.ipynb`, validation and test rows only |
-| First stage | [snowflake-arctic-embed-l-v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0) | Conditions 3–7; [mxbai-embed-large-v1](https://huggingface.co/mixedbread-ai/mxbai-embed-large-v1) is A; [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is condition 2 |
-| Keyword search | BM25 via bm25s | Conditions 1 and 5, histories, and hard-negative mining |
-| Reranker | [gte-reranker-modernbert-base](https://huggingface.co/Alibaba-NLP/gte-reranker-modernbert-base), off the shelf and fine-tuned | Conditions 6 and 7, reordering the first stage's top 10 |
+| Embedding model | [snowflake-arctic-embed-l-v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), off the shelf and fine-tuned | Steps 2–4 |
+| Keyword search | BM25 via bm25s | Step 1, the merged ranking, histories, and hard-negative mining |
+| Reranker | [gte-reranker-modernbert-base](https://huggingface.co/Alibaba-NLP/gte-reranker-modernbert-base), off the shelf and fine-tuned | Step 4, reordering the embedding model's top 10 |
 
 Qwen and Llama only write questions; they are never evaluated. Both run with MLX on the Mac's GPU:
 
@@ -308,9 +292,9 @@ Everything ran on a 64 GB Apple Silicon Mac GPU (MPS). Times are approximate, fr
 | Download ORCAS and stream MS MARCO titles | 20–30 min |
 | Qwen rewrites, 300k rows | about 10 h |
 | Llama validation and test questions, 2,500 rows | 10–15 min |
-| Fine-tuning the first stage, 50k rows, per seed | about 0.5 h |
+| Fine-tuning the embedding model, 50k rows, per seed | about 0.5 h |
 | Fine-tuning the reranker, 50k rows, per seed | about 1.8 h |
-| Scoring every condition on test | about 2.5 h |
+| Scoring every approach on test | about 2.5 h |
 
 ## Repo layout
 
@@ -336,31 +320,29 @@ The notebooks run on a `uv`-installed Python 3.11 with `requirements.txt`. To re
 
 ## Results
 
-Test set: 2,000 Llama-written questions, scored once after every choice was made on validation. Fine-tuned conditions are the mean over 3 seeds; the CI is a 95% bootstrap over questions. Full tables are in [`results/scores.md`](results/scores.md), and figures in [`report.md`](report.md).
+Test set: 2,000 Llama-written questions, scored once after every choice was made on validation. Fine-tuned models are the mean over 3 seeds; the CI is a 95% bootstrap over questions. Full tables are in [`results/scores.md`](results/scores.md); figures are in [`report.md`](report.md).
 
-| # | Condition | Recall@1 (95% CI) | Recall@5 | Recall@10 | MRR | Qwen Recall@1 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | BM25 | 0.561 (0.540–0.583) | 0.777 | 0.840 | 0.660 | 0.517 |
-| 2 | all-MiniLM-L6-v2, off the shelf | 0.694 (0.674–0.714) | 0.894 | 0.946 | 0.785 | 0.652 |
-| 3 | snowflake, off the shelf | 0.785 (0.768–0.804) | 0.946 | 0.970 | 0.855 | 0.755 |
-| A | mxbai-embed-large-v1, fine-tuned | 0.787 (0.770–0.804) | 0.948 | 0.976 | 0.858 | 0.789 |
-| 4 | snowflake, fine-tuned | 0.806 (0.788–0.822) | 0.960 | 0.980 | 0.874 | 0.801 |
-| 5 | BM25 + 4, RRF | 0.682 (0.662–0.702) | 0.886 | 0.934 | 0.776 | 0.645 |
-| 6 | 4 + gte reranker off the shelf, top 10, fused | 0.819 (0.803–0.835) | 0.962 | 0.980 | 0.883 | 0.807 |
-| 7 | **4 + gte reranker fine-tuned, top 10, fused (final)** | **0.832 (0.816–0.847)** | **0.963** | 0.980 | **0.890** | **0.821** |
+| Approach | Recall@1 (95% CI) | Recall@5 | Recall@10 | MRR | Qwen Recall@1 |
+| --- | --- | --- | --- | --- | --- |
+| 1. Keyword search (BM25) | 0.561 (0.540–0.583) | 0.777 | 0.840 | 0.660 | 0.517 |
+| 2. Embedding model, off the shelf | 0.785 (0.768–0.804) | 0.946 | 0.970 | 0.855 | 0.755 |
+| 3. Embedding model, fine-tuned | 0.806 (0.788–0.822) | 0.960 | 0.980 | 0.874 | 0.801 |
+| 3 + BM25, merged ranking (tried) | 0.682 (0.662–0.702) | 0.886 | 0.934 | 0.776 | 0.645 |
+| 3 + reranker, off the shelf (tried) | 0.819 (0.803–0.835) | 0.962 | 0.980 | 0.883 | 0.807 |
+| **4. 3 + fine-tuned reranker (final)** | **0.832 (0.816–0.847)** | **0.963** | 0.980 | **0.890** | **0.821** |
 
-- **The final model (7) puts the right page first for 83.2% of questions.** That is +27.1 points over BM25, +13.8 over all-MiniLM-L6-v2 and +4.6 over snowflake off the shelf. Every paired-bootstrap 95% CI excludes zero.
-- **Fine-tuning helps both stages.**
-  - The first stage gains 2.0 points of Recall@1 [95% CI +0.7, +3.4].
-  - The fine-tuned reranker adds 2.6 more, and 1.3 more than the same reranker off the shelf.
-  - Seed spread is 0.3–0.4 points.
-- **No writer-style effect:** fine-tuned snowflake scores 0.806 on Llama questions and 0.801 on Qwen questions.
-- **The BM25 hybrid hurts:** reciprocal rank fusion gives the much weaker BM25 ranking equal weight, costing 12.4 points against condition 4.
+- **Each step helps.** Paired-bootstrap gains in Recall@1:
+  - the embedding model over BM25: +22.4 points;
+  - fine-tuning: +2.0 [+0.7, +3.4];
+  - the fine-tuned reranker: +2.6 more.
+
+  Seed spread is 0.3–0.4 points.
+- **No writer-style effect:** the fine-tuned model scores 0.806 on Llama questions and 0.801 on Qwen questions.
+- **Merging with BM25 hurts:** it gives the much weaker BM25 ranking equal weight, costing 12.4 points.
 - **k = 10 is enough:**
-  - The first stage has the answer in its top 10 for 98.0% of questions, and in its top 50 for 99.7%.
+  - The fine-tuned model has the answer in its top 10 for 98.0% of questions.
   - Reranking 50 candidates instead of 10 adds at most 0.2 points.
-- **Capacity mattered more than fine-tuning:** moving from all-MiniLM-L6-v2 to snowflake, both off the shelf, gains 9.2 points.
-- **Caveat:** the rerankers were trained on mxbai's top-k mistakes, before the first stage switched to snowflake, and were not retrained.
+- **Caveat:** the reranker was trained on the mistakes of an earlier candidate (mxbai), before snowflake was chosen, and was not retrained.
 
 ## Next steps
 
