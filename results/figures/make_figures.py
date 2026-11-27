@@ -207,8 +207,6 @@ def fig_rerank_k():
     for dev, color, label in [("mps", BLUE, "Apple GPU (MPS)"), ("cpu", ORANGE, "CPU, 6 threads")]:
         d = sp[sp.device == dev].sort_values("k")
         ax.plot(d.k, d.question_ms, color=color, lw=2, marker="o", ms=6, label=label)
-    ax.axhline(250, color=GRAY, lw=1.5, ls="--")
-    ax.text(50, 262, "250 ms app budget", ha="right", fontsize=9, color=INK2)
     ax.set_xlabel("k")
     ax.set_ylabel("ms per question")
     ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0, 0.92))
