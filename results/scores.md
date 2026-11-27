@@ -38,3 +38,27 @@ Each experiment changes one thing from `baseline-50k`. Full settings and numbers
 | train-harder-batch, lr 1e-4, batch 1024 cached loss, epoch 1 / 2 / 3 | 0.692 / 0.690 / 0.694 | 0.906 / 0.908 / 0.904 | 0.787 / 0.788 / 0.789 |
 
 With url-words, BM25 rose to 0.486 / 0.714 / 0.595 and off-the-shelf bge-small to 0.668 / 0.892 / 0.771.
+
+## Reranker (Part 1, step 3; validation, 500 questions per set, Recall@1)
+
+Fine-tuned as sentence-transformers CrossEncoders on 50k rows from mxbai-embed-large-v1's top k (20k for bge-reranker-v2-m3, as planned). mxbai-rerank-large-v1 was screened off the shelf (0.710 at k = 10 on e5's top k) and dropped from training by the coordinator. App k = 10.
+
+Selection on mxbai's top k (first stage alone 0.760, keyword 0.656):
+
+| Reranker | k=10 | k=20 | k=50 | ms/q (k=10) | Qwen | Keyword | Off the shelf |
+|---|---|---|---|---|---|---|---|
+| gte-reranker-modernbert-base (seed 0) | **0.804** | 0.802 | 0.800 | 40 | 0.806 | 0.662 | 0.754 |
+| bge-reranker-v2-m3 | 0.782 | | | 79 | | 0.658 | 0.770 |
+
+gte won by more than 1 point and is faster. Its seeds 1 and 2 scored 0.802 and 0.812. v2-m3 trained with the cached MNRL loss (mini-batch 16, same gradient), eager attention and batch 16, peaking at 24 GB; at batch 32 it used 74 GB.
+
+On snowflake's top k (the chosen first stage: alone 0.790, keyword 0.682). Rerankers were trained on mxbai's candidates. "Fused" is `w_bi * z(first stage) + z(reranker)` within the top 10, with `w_bi` chosen on 1,000 held-out training rows (pool rows 50k–51k, questions plus keyword queries), never on validation:
+
+| Reranker | Alone | Alone keyword | w_bi | Fused | Fused Qwen | Fused keyword |
+|---|---|---|---|---|---|---|
+| gte seed 0 | 0.804 | 0.658 | 1.25 | 0.816 | 0.824 | 0.694 |
+| gte seed 1 | 0.802 | 0.670 | 0.6 | 0.814 | 0.834 | 0.710 |
+| gte seed 2 | 0.810 | 0.680 | 1.0 | 0.818 | 0.826 | 0.716 |
+| bge-reranker-v2-m3 | 0.780 | 0.652 | 1.0 | 0.808 | 0.824 | 0.686 |
+
+Without fusion, gte loses to snowflake on keyword queries (0.658 vs 0.682), which breaks PLAN.md's keyword rule. With fusion, all three seeds pass (0.694–0.716), so nothing was retrained. Winner: gte seed 0, fused at k = 10 with w_bi 1.25. The k = 10 cost is about 31 ms per question.
