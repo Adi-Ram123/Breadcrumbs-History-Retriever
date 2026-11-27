@@ -39,3 +39,30 @@ Accuracy = mean of Llama Recall@10 and Recall@50. The winner must not lose on th
 - The speed tie-break rests on CPU times that differ by under 1 ms per entry (16.95 to 17.77, about 5%), close to timing noise.
   On accuracy alone, snowflake leads mxbai seed 0 on every Llama and keyword metric except a tie at Recall@50
   (Llama Recall@1 0.790 against 0.760, Recall@10 0.982 against 0.976, keyword Recall@10 0.960 against 0.946).
+
+## Failed attempts (driver retries)
+
+- mxbai attempt 1: Metal out-of-memory (`MPS command buffer execution failed: Insufficient Memory`) during training at batch 128 without the cached loss. Nothing else held the GPU then. Attempt 4 resumed from the last checkpoint and finished. Seeds 1 and 2 ran with the same settings and did not hit it, so the peak is close to the limit rather than always over it.
+- mxbai attempts 2 and 3: a bug in the headless runner (it skipped cell 17, so `dense_speed` was undefined at the speed cell). Fixed in the runner; it affected only this worktree.
+- snowflake attempt 1: without the cached loss, batch 128 used about 69 GB and swapped. The kernel was stopped by hand. Attempt 2 used `CACHED_LOSS=True` with mini batch 32.
+- The GPU lock was not involved: each attempt held `gpu.lock` alone, and the runner shuts its kernel down before the lock is released.
+
+## Correction (Nov 26): snowflake, and the data size check
+
+PLAN.md now treats timing differences under 20% as noise, and lets Recall@1 and MRR decide when Recall@10 and Recall@50 are saturated (all three candidates are within 1 point). Snowflake leads on Recall@1, MRR and the keyword queries, so it replaces mxbai as the first stage. The mxbai winner file was kept as `first_stage_winner.mxbai.old`.
+
+Snowflake was then fine-tuned once on all usable question rows (no TRAIN_ROWS cap) with the same settings (cached loss, mini batch 32). The rule: use all rows if they gain at least 0.5 points of Llama Recall@1 or MRR without losing on the keyword queries (keyword Recall@1 and MRR not more than 0.5 points lower); otherwise 50k.
+
+| Run | Questions | R@1 | MRR | R@10 | R@50 | Training min |
+|---|---|---|---|---|---|---|
+| 50k rows, seed 0 | llama | 0.790 | 0.869 | 0.982 | 0.994 | 31 |
+| 50k rows, seed 0 | keyword | 0.682 | 0.791 | 0.960 | 0.994 | 31 |
+| all rows, seed 0 | llama | 0.794 | 0.871 | 0.982 | 0.996 | 157 |
+| all rows, seed 0 | keyword | 0.680 | 0.788 | 0.956 | 0.996 | 157 |
+| 50k rows, seed 1 | llama | 0.790 | 0.869 | 0.982 | 0.994 | 32 |
+| 50k rows, seed 1 | keyword | 0.682 | 0.792 | 0.962 | 0.996 | 32 |
+| 50k rows, seed 2 | llama | 0.796 | 0.871 | 0.978 | 0.994 | 32 |
+| 50k rows, seed 2 | keyword | 0.690 | 0.795 | 0.956 | 0.994 | 32 |
+
+- Gain of all rows over 50k (best of Llama Recall@1 and MRR): +0.4 points; keyword not lower: True
+- **First stage: `Snowflake/snowflake-arctic-embed-l-v2.0`, 50k rows** (`models/trained/exp_first-stage-snowflake`), extra seeds finished: 1, 2

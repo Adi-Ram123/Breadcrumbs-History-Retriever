@@ -47,8 +47,13 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
     - **`mxbai-rerank-large-v1`** (435M, DeBERTa-v3-large). Mixedbread reports it is among the strongest open rerankers on BEIR. It still needs an off-the-shelf screen first, which takes minutes.
     - **`gte-reranker-modernbert-base`** (149M, ModernBERT). Recall@1 0.754 at 30 ms, within 1.6 points of v2-m3, with an 8k context that fits page-text chunks.
   - **Selection:**
-    - The most accurate fine-tuned candidate wins: Recall@1 for the reranker, Recall@10 and Recall@50 for the first stage.
-    - Speed decides only when two candidates are within 1 point, or when the winner breaks the latency budget at the app's k. The budget is about 250 ms per question for the reranker.
+    - The most accurate fine-tuned candidate wins.
+      - Reranker: Recall@1, then MRR.
+      - First stage: Recall@10 and Recall@50, but when they are saturated (all candidates within 1 point), Recall@1 and MRR on the Llama and keyword questions decide.
+    - Speed decides only when it is a real application constraint: the winner breaks the latency budget at the app's k (about 250 ms per question for the reranker), or it is at least 1.5× slower than a candidate within 0.5 points.
+    - Timing differences under 20% are noise and never decide.
+    - **Correction (Nov 26):** the first pick (mxbai, chosen on a 1% speed difference) is replaced by `snowflake-arctic-embed-l-v2.0`, which leads on Recall@1, MRR and the keyword queries.
+    - **Data size check:** snowflake is fine-tuned once on all usable question rows (about 200k), not 50k. The 2 extra seeds use whichever size wins.
     - The winner must not lose on the keyword queries.
     - Only the winner of each stage gets the 2 extra seeds.
   - **Screened, then dropped:**
@@ -82,7 +87,19 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
   - Option 1 (features as text) is trained first. Option 2 (features as data) trains overnight. If Option 2 is not ready by Friday midday, Option 1 ships and the report says Option 2 is pending.
   - Real training uses re-finding events only. Side-panel clicks are added later, because they need weeks of use.
   - The Claude comparison is skipped for now, in both parts.
-  - The user writes about 30 dev questions with dates against their own history by Friday morning.
+  - **No user input.** Everything runs autonomously, and no step waits for the owner. The dev and test questions are generated, not hand-written.
+  - **Question mix (training and evaluation):** generated from the user's real history, with labelled types, so results are reported for each type, not only overall.
+    - Topic only, no constraint: "the ramen recipe I looked at".
+    - Time only: "what did I open yesterday evening?".
+    - Topic plus time: "the flight deal from last Tuesday".
+    - Kind: search vs visit ("what did I search about tax forms?").
+    - Site or source: "the GitHub issue about the login bug".
+    - Order and recency: "the last movie I watched", "the first page I opened this morning".
+    - Frequency: "the docs page I keep going back to".
+    - Vague or paraphrased, with no title words.
+    - No answer: the page is not in the history, and the system should say so rather than cite something.
+  - **Writers:** training questions are written by the local Qwen. Dev and test questions are written by a different local model (Llama, as in Part 1), so the reranker cannot learn one writer's habits. Train on earlier months and test on later ones.
+  - **Report per type:** Recall@1, Recall@5 and first-stage recall at k for each question type, date accuracy for the types with a time constraint, and the no-answer rate for the no-answer type. All are compared against stock all-MiniLM.
 - **GPU:** every GPU job still goes through `$TMPDIR/gpu_run.sh`. The Part 1 runs go first.
 
 ## Part 2: the app (`Adi-Ram123/Breadcrumbs-History-Assistant`, local branch `model`)
