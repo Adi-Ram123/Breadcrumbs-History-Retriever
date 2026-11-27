@@ -1,0 +1,442 @@
+{
+  "tune_rows": 1000,
+  "tune_questions": 1293,
+  "tune_start": 50000,
+  "first_stage_saw_tune_rows": false,
+  "weights": [
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 5,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "tune_recall@1": 0.7718484145398299,
+      "tune_reranker_alone_recall@1": 0.7231245166279969
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 10,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7780355761794276,
+      "tune_reranker_alone_recall@1": 0.7076566125290024
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 15,
+      "w_bi": 1.25,
+      "w_cross": 1,
+      "tune_recall@1": 0.7749419953596288,
+      "tune_reranker_alone_recall@1": 0.7045630317092034
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 20,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.774168600154679,
+      "tune_reranker_alone_recall@1": 0.7022428460943542
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 25,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7733952049497294,
+      "tune_reranker_alone_recall@1": 0.7014694508894045
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 30,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7733952049497294,
+      "tune_reranker_alone_recall@1": 0.699922660479505
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 40,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7749419953596288,
+      "tune_reranker_alone_recall@1": 0.6991492652745553
+    },
+    {
+      "condition": 6,
+      "seed": 0,
+      "k": 50,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.774168600154679,
+      "tune_reranker_alone_recall@1": 0.6983758700696056
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 5,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7764887857695282,
+      "tune_reranker_alone_recall@1": 0.774168600154679
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 10,
+      "w_bi": 1.25,
+      "w_cross": 1,
+      "tune_recall@1": 0.7811291569992266,
+      "tune_reranker_alone_recall@1": 0.7664346481051817
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 15,
+      "w_bi": 1.25,
+      "w_cross": 1,
+      "tune_recall@1": 0.7803557617942769,
+      "tune_reranker_alone_recall@1": 0.7648878576952823
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 20,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7811291569992266,
+      "tune_reranker_alone_recall@1": 0.7625676720804331
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 25,
+      "w_bi": 0.4,
+      "w_cross": 1,
+      "tune_recall@1": 0.7819025522041764,
+      "tune_reranker_alone_recall@1": 0.7625676720804331
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 30,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7811291569992266,
+      "tune_reranker_alone_recall@1": 0.7610208816705336
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 40,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7795823665893271,
+      "tune_reranker_alone_recall@1": 0.7587006960556845
+    },
+    {
+      "condition": 7,
+      "seed": 0,
+      "k": 50,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7795823665893271,
+      "tune_reranker_alone_recall@1": 0.7587006960556845
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 5,
+      "w_bi": 3.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7726218097447796,
+      "tune_reranker_alone_recall@1": 0.7231245166279969
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 10,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7764887857695282,
+      "tune_reranker_alone_recall@1": 0.7061098221191029
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 15,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7757153905645785,
+      "tune_reranker_alone_recall@1": 0.7045630317092034
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 20,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7749419953596288,
+      "tune_reranker_alone_recall@1": 0.7014694508894045
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 25,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7757153905645785,
+      "tune_reranker_alone_recall@1": 0.7014694508894045
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 30,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7795823665893271,
+      "tune_reranker_alone_recall@1": 0.699922660479505
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 40,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7780355761794276,
+      "tune_reranker_alone_recall@1": 0.6983758700696056
+    },
+    {
+      "condition": 6,
+      "seed": 1,
+      "k": 50,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.777262180974478,
+      "tune_reranker_alone_recall@1": 0.6976024748646559
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 5,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "tune_recall@1": 0.782675947409126,
+      "tune_reranker_alone_recall@1": 0.7710750193348801
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 10,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7865429234338747,
+      "tune_reranker_alone_recall@1": 0.7679814385150812
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 15,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7880897138437741,
+      "tune_reranker_alone_recall@1": 0.7633410672853829
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 20,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7873163186388245,
+      "tune_reranker_alone_recall@1": 0.7625676720804331
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 25,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7873163186388245,
+      "tune_reranker_alone_recall@1": 0.7633410672853829
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 30,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7880897138437741,
+      "tune_reranker_alone_recall@1": 0.7617942768754834
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 40,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7880897138437741,
+      "tune_reranker_alone_recall@1": 0.757153905645785
+    },
+    {
+      "condition": 7,
+      "seed": 1,
+      "k": 50,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7873163186388245,
+      "tune_reranker_alone_recall@1": 0.757153905645785
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 5,
+      "w_bi": 0.6,
+      "w_cross": 1,
+      "tune_recall@1": 0.7749419953596288,
+      "tune_reranker_alone_recall@1": 0.7215777262180975
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 10,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7733952049497294,
+      "tune_reranker_alone_recall@1": 0.7068832173240526
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 15,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7749419953596288,
+      "tune_reranker_alone_recall@1": 0.703016241299304
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 20,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7726218097447796,
+      "tune_reranker_alone_recall@1": 0.7022428460943542
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 25,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "tune_recall@1": 0.7733952049497294,
+      "tune_reranker_alone_recall@1": 0.7014694508894045
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 30,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "tune_recall@1": 0.7733952049497294,
+      "tune_reranker_alone_recall@1": 0.699922660479505
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 40,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7718484145398299,
+      "tune_reranker_alone_recall@1": 0.6983758700696056
+    },
+    {
+      "condition": 6,
+      "seed": 2,
+      "k": 50,
+      "w_bi": 1.25,
+      "w_cross": 1,
+      "tune_recall@1": 0.7718484145398299,
+      "tune_reranker_alone_recall@1": 0.6983758700696056
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 5,
+      "w_bi": 0.5,
+      "w_cross": 1,
+      "tune_recall@1": 0.7896365042536736,
+      "tune_reranker_alone_recall@1": 0.765661252900232
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 10,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7927300850734725,
+      "tune_reranker_alone_recall@1": 0.7602474864655839,
+      "tuned_w_bi": 0.8,
+      "source": "reranker selection (reranker_winner.txt fused_w_bi)"
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 15,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7911832946635731,
+      "tune_reranker_alone_recall@1": 0.7556071152358855
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 20,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7911832946635731,
+      "tune_reranker_alone_recall@1": 0.7548337200309359
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 25,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7911832946635731,
+      "tune_reranker_alone_recall@1": 0.7540603248259861
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 30,
+      "w_bi": 0.8,
+      "w_cross": 1,
+      "tune_recall@1": 0.7904098994586234,
+      "tune_reranker_alone_recall@1": 0.7532869296210364
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 40,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7935034802784223,
+      "tune_reranker_alone_recall@1": 0.7517401392111369
+    },
+    {
+      "condition": 7,
+      "seed": 2,
+      "k": 50,
+      "w_bi": 1.0,
+      "w_cross": 1,
+      "tune_recall@1": 0.7911832946635731,
+      "tune_reranker_alone_recall@1": 0.7494199535962877
+    }
+  ]
+}

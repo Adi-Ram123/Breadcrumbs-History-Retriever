@@ -6,7 +6,7 @@ Browser history search matches the literal words typed against page titles and U
 
 The project runs locally in Jupyter notebooks in VS Code on an Apple Silicon Mac. It is non-commercial coursework.
 
-> **Status:** final evaluation in progress. The data step (`data.ipynb`) and the exploratory runs in `models.ipynb` are done. The final experiment compares eight conditions on test questions regenerated with a neutral prompt; see [`PLAN.md`](PLAN.md). Part 2 then moves the final model into the Breadcrumbs History Assistant app. The test set is scored once, at the end.
+> **Status:** Part 1 is done. All conditions except the Claude reference (8, deferred) were scored once on the 2,000 test questions; see [Results](#results) and [`results/scores.md`](results/scores.md). Part 2 moves the final model into the Breadcrumbs History Assistant app; see [`PLAN.md`](PLAN.md).
 
 ## Research question
 
@@ -49,7 +49,7 @@ flowchart LR
 - **First-stage candidates:** bge-base/large, mxbai-embed-large, e5-large-v2, snowflake-arctic-embed-l-v2.0 and Qwen3-Embedding-0.6B.
 - **Reranker candidates:** bge-reranker-base, bge-reranker-v2-m3, Qwen3-Reranker-0.6B, gte-reranker-modernbert-base and ms-marco-MiniLM-L6.
 
-The top 2 of each are fine-tuned, and the winner is picked on validation: Recall@k for the first stage, Recall@1 for the reranker, with reranking under about 250 ms per question. Earlier exploratory conditions used bge-small; the RRF hybrid with the off-the-shelf model is dropped.
+The top 3 of each were fine-tuned with 1 seed, and the winner was picked on validation: Recall@k for the first stage (Recall@1 and MRR once Recall@10 and Recall@50 saturated), Recall@1 for the reranker, with reranking under about 250 ms per question. **Chosen:** `snowflake-arctic-embed-l-v2.0` as the first stage (50k training rows) and `gte-reranker-modernbert-base` as the reranker, at k = 10. Each winner was then trained with 3 seeds. Earlier exploratory conditions used bge-small.
 
 ```mermaid
 flowchart LR
@@ -320,9 +320,9 @@ A result that misses the target is still reported in full with its analysis.
 | --- | --- | --- |
 | Training rewrites | [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B), 4-bit MLX ([mlx-community/Qwen3.6-35B-A3B-4bit](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit)) | Data step, every sampled row |
 | Test questions | [Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct), 4-bit MLX ([mlx-community/Meta-Llama-3.1-8B-Instruct-4bit](https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-4bit)) | `models.ipynb`, test and validation rows only |
-| Retriever | [bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) | Conditions 2–5, and the model the application uses |
-| Keyword search | BM25 via bm25s | Conditions 1, 4, 5, histories, and hard-negative mining |
-| Reranker | [ms-marco-MiniLM-L-6-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2), [ms-marco-MiniLM-L-12-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2), fine-tuned | Condition 6, reordering the bi-encoder's top k |
+| Retriever (first stage) | [snowflake-arctic-embed-l-v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), fine-tuned | Conditions 3–7; [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is condition 2, the app's current embedder |
+| Keyword search | BM25 via bm25s | Conditions 1 and 5, histories, and hard-negative mining |
+| Reranker | [gte-reranker-modernbert-base](https://huggingface.co/Alibaba-NLP/gte-reranker-modernbert-base), off the shelf and fine-tuned | Conditions 6 and 7, reordering the first stage's top 10 |
 
 Qwen and Llama only write questions; they are never evaluated. Both run with MLX on the Mac's GPU:
 
@@ -407,53 +407,37 @@ results/
 
 The notebooks run on a `uv`-installed Python 3.11 with `requirements.txt`, in VS Code.
 
-## Results so far
+## Results
 
-Exploratory runs. Validation, 500 Llama questions written with the first (paraphrase) prompt; the final evaluation re-scores everything on the neutral-prompt questions. Fine-tuned rows use 50k training rows, bf16 and seed 0. Full numbers are in `results/scores.md` and `results/experiments/`.
+Test set, 2,000 questions per set, scored once after all choices were made on validation. Fine-tuned conditions are mean ± std over 3 seeds. Full tables, the paired bootstrap, the k curve, timing and the screening appendix are in [`results/scores.md`](results/scores.md).
 
-| Model | Recall@1 | Recall@5 | MRR |
-| --- | --- | --- | --- |
-| BM25 | 0.476 | 0.708 | 0.582 |
-| bge-small, off the shelf | 0.654 | 0.896 | 0.764 |
-| bge-small fine-tuned, question BM25 negatives (`baseline-50k`) | 0.690 | 0.902 | 0.783 |
-| bge-small fine-tuned, look-alike negatives | 0.708 | 0.920 | 0.798 |
-| + MiniLM-L6 cross-encoder, top 10 | 0.722 | 0.926 | 0.810 |
-| + MiniLM-L12 cross-encoder, top 10 | **0.738** | **0.932** | **0.824** |
+| # | Condition | Llama R@1 | Llama R@10 | Llama MRR | Qwen R@1 | Keyword R@1 | GPU / CPU ms per question |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | BM25 | 0.561 | 0.840 | 0.660 | 0.517 | 0.410 | – / 0.2 |
+| 2 | all-MiniLM-L6-v2, off the shelf | 0.694 | 0.946 | 0.785 | 0.652 | 0.587 | 8.9 / 2.8 |
+| 3 | snowflake, off the shelf | 0.785 | 0.970 | 0.855 | 0.755 | 0.681 | 16.7 / 37.4 |
+| 4 | snowflake, fine-tuned | 0.806 ± 0.003 | 0.980 ± 0.001 | 0.874 ± 0.002 | 0.801 ± 0.004 | 0.706 ± 0.005 | 16.7 / 37.4 |
+| 5 | BM25 + 4, RRF | 0.682 ± 0.002 | 0.934 ± 0.001 | 0.776 ± 0.001 | 0.645 ± 0.005 | 0.527 ± 0.001 | 14.2 / 37.9 |
+| 6 | 4 + gte reranker off the shelf, top 10, fused | 0.819 ± 0.001 | 0.980 ± 0.001 | 0.883 ± 0.001 | 0.807 ± 0.001 | 0.719 ± 0.004 | 46 / 150 |
+| 7 | **4 + gte reranker fine-tuned, top 10, fused (final)** | **0.832 ± 0.004** | 0.980 ± 0.001 | **0.890 ± 0.002** | **0.821 ± 0.001** | **0.730 ± 0.003** | 46 / 150 |
 
-The same pages with the other two validation question sets (Recall@1):
-
-| Model | Llama | Qwen (training style) | Keyword (real searches) |
-| --- | --- | --- | --- |
-| bge-small, off the shelf | 0.654 | 0.622 | 0.552 |
-| bge-small fine-tuned, look-alike negatives | 0.708 | 0.708 | 0.626 |
-| + MiniLM-L6, top 10 | 0.722 | 0.698 | 0.624 |
-| + MiniLM-L12, top 10 | 0.738 | 0.716 | 0.598 |
-
-What has been learned:
-
-- **Negatives that look like the evaluation's look-alike pages help most.** No other training change has helped: a higher learning rate, more epochs, a bigger batch, and URLs split into words were each neutral or worse.
-- **A reranker needs fine-tuning on this task.** Off the shelf, both MiniLM rerankers scored below the bi-encoder alone at k = 20 (0.670 and 0.656). Fine-tuned, they gain 1.4 to 3 points.
-- **The reranker's gain does not pass the keyword check yet.** MiniLM-L12 gains 3 points on the Llama questions, but loses 2.8 points on the keyword queries and gains less than a point on the Qwen questions. The likely cause: the reranker trained on Qwen questions only, while the bi-encoder also trains on about 30% keyword queries. The fine-tuned bi-encoder itself shows no style gap (Qwen = Llama = 0.708).
-- **A small k is enough.** Raising k past 10 does not help, and k = 10 costs about 7 ms (L6) to 12 ms (L12) per question on the Mac GPU.
-- **Gains are small next to the noise.** On 500 questions, differences under about 3 points are noise.
-- **The ceiling may be near 0.85.** The error analysis estimates that about 10 in 25 misses cannot be told apart from the question and `title | url` alone.
+- **The final model (7) puts the right page first for 83.2% of the Llama questions.** That is +27.1 points over BM25, +13.8 over the app's current embedder and +4.6 over snowflake off the shelf (paired bootstrap, every 95% CI excludes zero). The gains hold on the Qwen questions and the keyword queries.
+- **Fine-tuning helps both stages.** The first stage gains 2.0 (Llama), 4.6 (Qwen) and 2.4 (keyword) points of Recall@1. The fine-tuned reranker adds 2.6 more, and 1.3 more than the same reranker off the shelf.
+- **No loss on real keyword queries:** each step up the table also raises keyword Recall@1.
+- **The BM25 hybrid hurts:** reciprocal rank fusion gives the much weaker BM25 ranking equal weight (−12 points against 4).
+- **k = 10 is enough.** The first stage has the answer in its top 10 for 98.0% of questions and in its top 50 for 99.7%. Reranking 50 instead of 10 adds at most 0.2 points and costs 4× the time.
+- **The target was missed narrowly.** Validation Recall@1 ≥ 0.82 was the target: the final model reached 0.814–0.818 on validation and 0.832 on test. The earlier error analysis estimated a ceiling near 0.85 from `title | url` alone.
+- Fusion weights were picked on held-out training rows, never on validation. The rerankers were trained on mxbai's top k before the first stage switched to snowflake. The Claude reference (8) is deferred.
 
 ## Next
 
-The final experiment and the move into the app are planned in [`PLAN.md`](PLAN.md):
+Part 2, the Breadcrumbs History Assistant app (local branch `model`), is planned in [`PLAN.md`](PLAN.md). It is a retrieval-augmented generation (RAG) design:
 
-1. **Part 1, this repo:**
-   - regenerate the validation and test questions with the neutral prompt;
-   - choose the model sizes on validation;
-   - train the fine-tuned conditions with 3 seeds;
-   - score conditions 1–8 once on test (Llama, Qwen and keyword questions, with a paired bootstrap and latency);
-   - write the report.
-2. **Part 2, the Breadcrumbs History Assistant app, local branch `model`:** a retrieval-augmented generation (RAG) design.
-   - The fine-tuned first stage keeps a large top k for high recall.
-   - The fine-tuned reranker scores each candidate from the question, the page text and its history features: hours since the visit, visit count, clicks, opened from a search and time on page. It makes the language and time decisions.
-   - Two ways of giving it those features are compared: as a feature vector into one small output layer trained with the reranker (preferred), and written as text in the page string.
-   - The local LLM only writes the reply.
-   - Training uses the user's own history.
+- The fine-tuned snowflake first stage keeps a large top k for high recall.
+- The fine-tuned gte reranker scores each candidate from the question, the page text and its history features. It makes the language and time decisions.
+- The local LLM only writes the reply.
+
+The Claude reference (condition 8) is scored later.
 
 ## Later: browsing behaviour from real Chrome histories
 
