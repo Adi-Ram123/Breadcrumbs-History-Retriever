@@ -86,7 +86,8 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
   - Integration (step 1) is built against the known first stage (mxbai). The reranker winner is plugged in when it is picked.
   - Option 1 (features as text) is trained first. Option 2 (features as data) trains overnight. If Option 2 is not ready by Friday midday, Option 1 ships and the report says Option 2 is pending.
   - Real training uses re-finding events only. Side-panel clicks are added later, because they need weeks of use.
-  - The Claude comparison is skipped for now, in both parts.
+  - The Claude comparison is skipped for now, in both parts; the owner will decide on it later.
+  - **Before vs after.** Part 2's headline comparison is the trained app against the app as it was before this work: its old pipeline, unchanged, on the same test questions and synthetic history.
   - **No user input.** Everything runs autonomously, and no step waits for the owner. The dev and test questions are generated, not hand-written.
   - **Question mix (training and evaluation):** generated from the user's real history, with labelled types, so results are reported for each type, not only overall.
     - Topic only, no constraint: "the ramen recipe I looked at".
