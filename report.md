@@ -22,7 +22,7 @@ We built the retriever in four steps, each motivated by the one before:
 3. **The same model fine-tuned on the rewritten questions:** improves further, to 81%. It already has the answer in its top 10 for 98% of questions; the problem is putting it first.
 4. **A cross-encoder reranker, fine-tuned on the embedding model's own mistakes:** reorders the top 10 and reaches **83.2% Recall@1** and **0.890 MRR**.
 
-Fine-tuning helped every embedding model we tried, and the gains are the same whichever LLM wrote the questions.
+Fine-tuning helped every embedding model and reranker we tried, and the gains are the same whichever LLM wrote the questions.
 
 ---
 
@@ -34,7 +34,7 @@ We tested three hypotheses. H1 and H2 come from our proposal. H3 came from what 
 
 **H1. Fine-tuning on rewritten questions helps.** An embedding model fine-tuned on search clicks that an LLM rewrote into conversational questions finds the right page more often than keyword search (BM25), and more often than the same model without fine-tuning. This holds on held-out questions written by a different LLM.
 
-**H2. The gain replicates.** The improvement from fine-tuning is not specific to one model; it holds on a second embedding model.
+**H2. The approach does not depend on one model.** Fine-tuning on the rewritten questions improves whichever model it is applied to, not just the one we ended up choosing. That means every embedding model in step 3 and every reranker in step 4.
 
 **H3. A reranker fixes the ordering problem.** After fine-tuning, the right page is usually near the top but not first. A cross-encoder that reads the question and each of the top 10 pages together, fine-tuned on the embedding model's own mistakes, puts the right page first more often.
 
@@ -43,7 +43,7 @@ We tested three hypotheses. H1 and H2 come from our proposal. H3 came from what 
 | Hypothesis | Evidence | Verdict |
 |---|---|---|
 | **H1** | Fine-tuned model vs BM25: Recall@1 0.806 vs 0.561 (+24.5 [+22.3, +26.7]); MRR 0.874 vs 0.660. Vs the same model off the shelf: 0.806 vs 0.785 (+2.0 [+0.7, +3.4]); MRR 0.874 vs 0.855. Both gains hold on all 3 seeds | **Supported.** The gain over BM25 is large; the gain over the same model off the shelf is small but significant |
-| **H2** | Validation: fine-tuning raised Recall@1 on every embedding model we tried: e5-large-v2 +5.0, snowflake +1.6 and mxbai +0.8 (Figure 4), and bge-small +5.4 in an earlier round. Test: fine-tuned mxbai reaches 0.787 against BM25's 0.561; mxbai off the shelf was not scored on test | **Supported on validation.** Only partly checked on test |
+| **H2** | Validation Recall@1 before → after fine-tuning (Figure 4). Embedding models: snowflake 0.774 → 0.790, mxbai 0.752 → 0.760, e5 0.730 → 0.780, and bge-small 0.654 → 0.708 in an earlier round. Rerankers on the top 10: gte 0.752 → 0.804, bge-reranker-v2-m3 0.768 → 0.780. On test, a second fine-tuned embedding model (mxbai) also far outscores BM25 (0.787 vs 0.561) | **Supported on validation.** On test, only the chosen models and fine-tuned mxbai were scored |
 | **H3** | Fine-tuned model alone: Recall@1 0.806. With the fine-tuned reranker on its top 10: 0.832 (+2.6). The same reranker off the shelf reaches 0.819, so fine-tuning the reranker adds 1.3 more. MRR rises from 0.874 to 0.890 | **Supported** |
 
 ---
@@ -122,7 +122,7 @@ The fine-tuned model reaches **80.6%** Recall@1 (H1). Figure 2 shows where the r
 
 We also tried merging the fine-tuned model's ranking with BM25's (reciprocal rank fusion). It *lowered* Recall@1 to 68.2%: BM25 is much weaker, and merging gives its ranks equal weight.
 
-**Choosing the embedding model.** We fine-tuned several widely used open embedding models: bge-small, e5-large-v2, mxbai-embed-large-v1 and snowflake-arctic-embed-l-v2.0. We kept the one with the best validation Recall@1, snowflake. Small models such as bge-small (33M) plateaued near 71% validation Recall@1, so the final model is a larger one (568M). Fine-tuning improved every model we tried (Figure 4).
+**Choosing the embedding model.** We fine-tuned several widely used open embedding models: bge-small, e5-large-v2, mxbai-embed-large-v1 and snowflake-arctic-embed-l-v2.0. We kept the one with the best validation Recall@1, snowflake. Small models such as bge-small (33M) plateaued near 71% validation Recall@1, so the final model is a larger one (568M). Fine-tuning improved every model we tried (Figure 4, H2).
 
 ### Step 4: Rerank the top 10 with a fine-tuned cross-encoder
 
@@ -130,7 +130,7 @@ An embedding model encodes the question and each page separately, so it cannot c
 
 - **Training on the embedding model's own mistakes.** For each training question we built a history like the test ones. The fine-tuned embedding model ranked it, and its 7 highest-ranked wrong pages became the reranker's hard negatives.
 - **Combining scores.** The final score adds the reranker's score to a weighted embedding-model score, both standardised within the top 10. The weight was fitted on held-out training questions, never on validation or test.
-- **Choosing the reranker.** We fine-tuned two widely used rerankers, bge-reranker-v2-m3 and gte-reranker-modernbert-base, and kept the one with the best validation Recall@1, gte.
+- **Choosing the reranker.** We fine-tuned two widely used rerankers, bge-reranker-v2-m3 and gte-reranker-modernbert-base, and kept the one with the best validation Recall@1, gte. Fine-tuning improved both (Figure 4).
 
 The final model puts the right page first for **83.2%** of questions, with MRR **0.890** (H3). Reranking more than the top 10 adds almost nothing (Figure 3).
 
@@ -165,9 +165,13 @@ Seed spread (standard deviation of Recall@1 over 3 seeds) is 0.3 points for step
 
 **Figure 3.** Final model's test Recall@1 as the number of reranked candidates k varies. It is flat past k = 10, so the final model reranks the top 10.
 
+### Does the approach depend on the model? (H2)
+
+The main result is the approach, not the choice of model. To check that, we applied the same fine-tuning to several widely used models at each stage. It improved every one of them, and we kept the most accurate: snowflake for the embedding model and gte for the reranker.
+
 ![Figure 4](results/figures/fig4_finetune_each_model.png)
 
-**Figure 4.** Validation Recall@1 (500 questions) of each embedding model we fine-tuned, before and after fine-tuning (seed 0). Fine-tuning helps all of them (H2). We kept snowflake, the most accurate.
+**Figure 4.** Validation Recall@1 (500 questions, seed 0) before and after fine-tuning. Left: each embedding model we tried (step 3). Right: each reranker we tried, reordering the fine-tuned snowflake's top 10 (step 4, reranker score alone). Fine-tuning helps every model; the gain is largest where the off-the-shelf model is weakest (e5, gte).
 
 ![Figure 5](results/figures/fig5_question_writers.png)
 

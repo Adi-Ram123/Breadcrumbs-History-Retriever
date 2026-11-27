@@ -111,26 +111,30 @@ def fig_rerank_k():
 
 
 def fig_finetune_each_model():
-    models = [("snowflake-arctic-embed-l-v2.0", "first-stage-snowflake", "snowflake-arctic-\nembed-l-v2.0 (chosen)"),
-              ("mxbai-embed-large-v1", "first-stage-mxbai", "mxbai-embed-\nlarge-v1"),
-              ("e5-large-v2", "first-stage-e5", "e5-large-v2")]
-    off, ft = [], []
-    for base, exp, _ in models:
-        v = json.load(open(EXP / exp / "validation.json"))["validation"]
-        off.append(v[base]["recall@1"])
-        ft.append(v[f"exp_{exp}"]["recall@1"])
-    fig, ax = plt.subplots(figsize=(7.5, 3.9))
-    x = np.arange(len(models))
-    for dx, vals, color, label in [(-0.2, off, LIGHT, "off the shelf"), (0.2, ft, BLUE, "fine-tuned")]:
-        bars = ax.bar(x + dx, vals, 0.38, color=color, label=label)
-        for b, v in zip(bars, vals):
-            ax.text(b.get_x() + b.get_width() / 2, v + 0.004, f"{v:.3f}", ha="center", fontsize=9, color=INK)
-    ax.set_xticks(x, [m[2] for m in models])
-    ax.set_ylim(0.65, 0.83)
-    ax.set_ylabel("Recall@1, validation")
-    ax.grid(axis="x", visible=False)
-    ax.legend(frameon=False, loc="upper right")
-    ax.set_title("Fine-tuning helps every embedding model we tried", loc="left", color=INK, fontsize=12)
+    emb = [("snowflake-arctic-\nembed-l-v2.0 (chosen)", "first-stage-snowflake", "snowflake-arctic-embed-l-v2.0", "exp_first-stage-snowflake"),
+           ("mxbai-embed-\nlarge-v1", "first-stage-mxbai", "mxbai-embed-large-v1", "exp_first-stage-mxbai"),
+           ("e5-large-v2", "first-stage-e5", "e5-large-v2", "exp_first-stage-e5")]
+    rer = [("gte-reranker-\nmodernbert-base (chosen)", "ft-gte-reranker-modernbert-base-on-snowflake", "pretrained_k10", "reranker_k10"),
+           ("bge-reranker-\nv2-m3", "ft-bge-reranker-v2-m3-on-snowflake", "pretrained_k10", "reranker_k10")]
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4), gridspec_kw={"width_ratios": [3, 2]}, sharey=True)
+    for ax, rows, title in [(axes[0], emb, "Embedding models (step 3)"), (axes[1], rer, "Rerankers on the top 10 (step 4)")]:
+        off, ft = [], []
+        for _, exp, k_off, k_ft in rows:
+            v = json.load(open(EXP / exp / "validation.json"))["validation"]
+            off.append(v[k_off]["recall@1"])
+            ft.append(v[k_ft]["recall@1"])
+        x = np.arange(len(rows))
+        for dx, vals, color, label in [(-0.2, off, LIGHT, "off the shelf"), (0.2, ft, BLUE, "fine-tuned")]:
+            bars = ax.bar(x + dx, vals, 0.38, color=color, label=label)
+            for b, v in zip(bars, vals):
+                ax.text(b.get_x() + b.get_width() / 2, v + 0.004, f"{v:.3f}", ha="center", fontsize=9, color=INK)
+        ax.set_xticks(x, [r[0] for r in rows], fontsize=9.5)
+        ax.set_title(title, loc="left", color=INK, fontsize=11)
+        ax.grid(axis="x", visible=False)
+        ax.set_ylim(0.65, 0.83)
+    axes[0].set_ylabel("Recall@1, validation")
+    axes[1].legend(frameon=False, loc="upper right", fontsize=9)
+    fig.suptitle("Fine-tuning improves every model we tried, at both stages", x=0.02, ha="left", color=INK, fontsize=12)
     save(fig, "fig4_finetune_each_model.png")
 
 

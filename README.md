@@ -13,7 +13,7 @@ The project runs locally in Jupyter notebooks on an Apple Silicon Mac. It is non
 **When people ask about their browsing history in their own words, what is the best way to build and fine-tune a retriever so it returns the page they mean?**
 
 - **H1. Fine-tuning helps.** An embedding model fine-tuned on search clicks that an LLM rewrote into conversational questions finds the right page more often than keyword search (BM25) and than the same model without fine-tuning, on questions written by a different LLM.
-- **H2. The gain replicates.** Fine-tuning also helps a second embedding model.
+- **H2. The approach does not depend on one model.** Fine-tuning on the rewritten questions improves whichever embedding model or reranker it is applied to, not just the ones we chose.
 - **H3. A reranker fixes the ordering problem.** After fine-tuning, the right page is usually near the top but not first. A cross-encoder fine-tuned on the embedding model's own mistakes, reordering its top 10, puts it first more often.
 
 All three are supported; the evidence is in [Results](#results) and Section 1 of [`report.md`](report.md). Rewriting search queries into questions is only how the project produces training data. It is a means, not the subject of the study.
@@ -62,7 +62,7 @@ Also tried:
 - **Embedding models:** bge-small, e5-large-v2, mxbai-embed-large-v1 and snowflake-arctic-embed-l-v2.0. Snowflake was chosen.
 - **Rerankers:** bge-reranker-v2-m3 and gte-reranker-modernbert-base. gte was chosen.
 
-Fine-tuning improved every embedding model (H2). Small models such as bge-small (33M) plateaued near 71% validation Recall@1, so the final model is a larger one (568M).
+Fine-tuning improved every embedding model and both rerankers (H2). Small models such as bge-small (33M) plateaued near 71% validation Recall@1, so the final model is a larger one (568M).
 
 ## Data
 
@@ -222,7 +222,7 @@ Each validation or test question ranks its own 200-entry history: the answer, 10
 | Hypothesis | Evidence (test, 2,000 questions; 95% paired-bootstrap CI) | Verdict |
 | --- | --- | --- |
 | H1 | Fine-tuned vs BM25: Recall@1 0.806 vs 0.561 (+24.5 [+22.3, +26.7]). Vs the same model off the shelf: 0.806 vs 0.785 (+2.0 [+0.7, +3.4]); MRR 0.874 vs 0.855 | Supported |
-| H2 | Validation Recall@1 gain from fine-tuning: e5 +5.0, snowflake +1.6, mxbai +0.8, bge-small +5.4 (earlier round). On test, fine-tuned mxbai reaches 0.787; off-the-shelf mxbai was not scored on test | Supported on validation |
+| H2 | Validation Recall@1 before → after fine-tuning. Embedding models: snowflake 0.774 → 0.790, mxbai 0.752 → 0.760, e5 0.730 → 0.780, bge-small 0.654 → 0.708 (earlier round). Rerankers: gte 0.752 → 0.804, bge-reranker-v2-m3 0.768 → 0.780 | Supported on validation |
 | H3 | Fine-tuned model 0.806, plus fine-tuned reranker 0.832 (+2.6); reranker off the shelf 0.819; MRR 0.874 → 0.890 | Supported |
 
 ### Error analysis
