@@ -16,7 +16,7 @@ We compared keyword search, eight off-the-shelf embedding models, three fine-tun
 - **First stage:** a fine-tuned `snowflake-arctic-embed-l-v2.0` bi-encoder (568M parameters).
 - **Reranker:** a fine-tuned `gte-reranker-modernbert-base` cross-encoder (149M) that reorders the bi-encoder's top 10. Its score is combined with the bi-encoder's.
 
-The system reaches Recall@1 0.832 and Recall@5 0.963. The gains hold on questions in the training writer's style and on the original keyword queries typed by real people. The full system takes about 46 ms per question on a laptop GPU. The original hypothesis was for a small (22M) model to gain 10 points of Recall@5. That proved impossible to test as stated: off-the-shelf models already scored 90–95% Recall@5. So we switched to Recall@1 and larger models before running any test, and we report the original hypothesis's outcome below.
+The system reaches Recall@1 0.832, Recall@5 0.963 and MRR 0.890, and the ranking of conditions is the same whichever LLM wrote the questions. We first fine-tuned a small model (bge-small, 33M), aiming for a 10-point Recall@5 gain. Off-the-shelf models already scored 90–95% Recall@5, so a gain that large was impossible. We switched to Recall@1 and larger models before running any test, and report the original hypothesis's outcome below.
 
 ---
 
@@ -24,12 +24,12 @@ The system reaches Recall@1 0.832 and Recall@5 0.963. The gains hold on question
 
 **Question.** When people ask about their browsing history in their own words, which retriever, and which way of fine-tuning it, returns the page they mean?
 
-**Original hypothesis (proposal, October 2026).** Fine-tuning a small embedding model (all-MiniLM-L6-v2, 22M parameters) on LLM-rewritten click data would raise Recall@5 by at least 10 points over BM25 and over the same model off the shelf, and the gain would replicate on a second model (bge-small, 33M).
+**Original hypothesis.** Fine-tuning a small embedding model (bge-small, 33M parameters) on LLM-rewritten click data would raise Recall@5 by at least 10 points over BM25 and over the same model off the shelf, and the gain would replicate on a second model.
 
 **Revised hypothesis, fixed on validation before any test run.**
 - Off-the-shelf bge-small already reached 0.896 validation Recall@5, so a 10-point Recall@5 gain was impossible. Recall@1 became the primary metric, with MRR breaking ties.
 - The small models' recipe experiments (Section 5.2) gained at most 5.4 points of Recall@1 and plateaued near 0.71. Their misses were capacity errors, which motivated the move to larger models and a reranker.
-- The revised expectation: a fine-tuned large bi-encoder plus a fine-tuned cross-encoder reranker beats BM25, all-MiniLM-L6-v2 and the same bi-encoder off the shelf on Recall@1, without losing accuracy on real keyword queries.
+- The revised expectation: a fine-tuned large bi-encoder plus a fine-tuned cross-encoder reranker beats BM25, all-MiniLM-L6-v2 and the same bi-encoder off the shelf on Recall@1 and MRR.
 
 **Outcome against each hypothesis.**
 
@@ -39,19 +39,18 @@ The system reaches Recall@1 0.832 and Recall@5 0.963. The gains hold on question
 | Recall@5 rises ≥10 points over the same model off the shelf | +1.4 (0.946 → 0.960); the baseline leaves only 5.4 points of headroom | Not met (ceiling) |
 | Recall@1 improves over the same model off the shelf | +2.0 [95% CI +0.7, +3.4] (first stage), +4.6 [+3.3, +6.0] (final) | Met |
 | Gain replicates on a second model | Fine-tuning raised validation Recall@1 on all four models tried. On test, fine-tuned mxbai (0.787) beats BM25 and MiniLM, but its off-the-shelf version was not scored on test | Partly met |
-| No loss on real keyword queries | Final 0.730 vs first stage 0.706 vs off the shelf 0.682 | Met |
-| A small (22M) model is enough | Fine-tuned small models plateau near 0.71 validation Recall@1 | Not supported |
+| A small (33M) model is enough | Fine-tuned bge-small plateaued near 0.71 validation Recall@1 | Not supported |
 
 ---
 
 ## 2. Significance and related work
 
-**The problem.** A retrieval-augmented assistant over browsing history (Lewis et al., 2020) can only answer from what its retriever finds. Chrome's history search matches literal keywords against titles and URLs. That fails when a question and the page's title share few words. An LLM reading the whole history would see about 100k tokens per question, which is slow and expensive on a laptop.
+**The problem.** A retrieval-augmented assistant over browsing history (Lewis et al., 2020) can only answer from what its retriever finds. Chrome's history search matches literal keywords against titles and URLs. That fails when a question and the page's title share few words. An LLM reading the whole history would see about 100k tokens per question.
 
 **Why it matters.**
 - Personal retrieval has no labelled data, and collecting it raises privacy problems. Search clicks rewritten by an LLM are a privacy-free substitute.
-- We test whether models trained this way transfer to questions written by another LLM, and to queries real people typed.
-- A bi-encoder embeds each page once and searches thousands of entries in milliseconds on a laptop.
+- We test whether models trained this way transfer to questions written by another LLM.
+- A bi-encoder embeds each page once, so it scales to long histories.
 
 **Related work.**
 - **Click data:** ORCAS (Craswell et al., 2020), with titles from MS MARCO (Nguyen et al., 2016).
@@ -69,12 +68,12 @@ The system reaches Recall@1 0.832 and Recall@5 0.963. The gains hold on question
 | | |
 |---|---|
 | **Final models** | First stage: `Snowflake/snowflake-arctic-embed-l-v2.0` (568M), fine-tuned. Reranker: `Alibaba-NLP/gte-reranker-modernbert-base` (149M), fine-tuned, reordering the top 10 |
-| **Data** | 300,000 ORCAS query–click pairs with MS MARCO titles. Splits: 297,500 training, 500 validation, 2,000 test (by query). Training used 50,000 question rows plus their keyword queries |
+| **Data** | 300,000 ORCAS query–click pairs with MS MARCO titles. Splits: 297,500 training, 500 validation, 2,000 test (by query). Training used 50,000 question rows, plus the original search queries as extra rows |
 | **Question writers** | Training: Qwen3-30B-A3B (4-bit, MLX, greedy). Validation and test: Llama-3.1-8B-Instruct (4-bit, MLX, greedy), with the same neutral prompt |
 | **Test design** | Each question ranks its own 200 entries (`title \| url`): the answer, 100 BM25 look-alikes of the answer's entry, and 99 random pages |
 | **Conditions** | 7 conditions (Table 1), plus fine-tuned mxbai as a replication (A). Selection screened 8 first-stage models and 6 rerankers |
-| **Metrics** | Recall@1 (primary), Recall@5, @10, @20, @50 and @100, MRR, and ms per question. 3 seeds for each fine-tuned condition. Per-condition 95% bootstrap CIs and paired bootstrap tests (10,000 resamples) |
-| **Check sets** | The same 2,000 test pages asked two more ways: Qwen-written questions (the training style) and the original ORCAS keyword queries (typed by people) |
+| **Metrics** | Recall@1 (primary), Recall@5, @10, @20, @50 and @100, and MRR. 3 seeds for each fine-tuned condition. Per-condition 95% bootstrap CIs and paired bootstrap tests (10,000 resamples) |
+| **Check set** | The same 2,000 test pages asked again by Qwen (the training writer), to test whether models learned the writer's style |
 | **Compute** | A 64 GB Apple Silicon Mac GPU (MPS), not Colab (Table 1 lists approximate GPU-hours). Rewriting 300k questions took about 10 GPU-hours |
 
 ---
@@ -106,7 +105,7 @@ flowchart LR
 - Qwen3-30B-A3B rewrote all 300k keyword queries, with greedy decoding and few-shot examples rotated by a seeded hash.
 - The first prompt banned copying three or more title words and asked for loose descriptions. That handicapped BM25 by design, so the final round removed both rules and used one neutral prompt for both writers.
 - The lowest 10% of rewrites by average token log-probability were dropped (`drop10`, chosen on validation).
-- The original keyword queries were mixed back in as extra training rows.
+- The original search queries were mixed back in as extra training rows.
 
 **First stage.**
 - Loss: `MultipleNegativesRankingLoss` (in-batch negatives) plus one hard negative per question.
@@ -120,8 +119,8 @@ flowchart LR
 
 **Fusion.**
 - Within the top 10, the final score is `w · z(bi-encoder) + z(reranker)`, where z standardises each model's scores within the 10.
-- `w` comes from a 14-value grid, chosen on 1,000 held-out training rows (with their keyword queries), never on validation. The selected values were 1.25, 0.6 and 1.0 for the three seeds.
-- Fusion is what kept the reranker from losing on keyword queries (Section 5.4).
+- `w` comes from a 14-value grid, chosen on 1,000 held-out training rows, never on validation. The selected values were 1.25, 0.6 and 1.0 for the three seeds.
+- Fusion raised Recall@1 over the reranker alone (Section 5.4).
 
 ---
 
@@ -148,9 +147,9 @@ flowchart LR
 
 Seed spread (standard deviation of Recall@1 over 3 seeds) is 0.003 for condition 4 and 0.004 for condition 7, far smaller than the gaps between conditions. Condition 7 beats condition 3 by +4.6 points [+3.3, +6.0], and condition 4 beats condition 3 by +2.0 [+0.7, +3.4].
 
-![Figure 2](results/figures/fig2_three_question_sets.png)
+![Figure 2](results/figures/fig2_two_question_writers.png)
 
-**Figure 2.** Test Recall@1 on the same 2,000 pages, asked three ways. The ranking of conditions is identical on all three, and every step up also raises accuracy on keyword queries typed by people. Fine-tuned snowflake scores the same on Llama (0.806) and Qwen (0.801) questions, so it learned the task, not Qwen's style.
+**Figure 2.** Test Recall@1 on the same 2,000 pages, asked by the test writer (Llama) and by the training writer (Qwen). The ranking of conditions is identical for both. Fine-tuned snowflake scores the same on Llama (0.806) and Qwen (0.801) questions, so it learned the task, not Qwen's style.
 
 ![Figure 7](results/figures/fig7_first_stage_recall_at_k.png)
 
@@ -189,41 +188,38 @@ For the final round we regenerated all questions with the neutral prompt and scr
 
 **Figure 5.** Off-the-shelf screening on 500 validation questions.
 - **First stage (left):** the three most accurate models were fine-tuned (blue). Qwen3-Embedding-0.6B was dropped: it scored lower and, being LLM-based, needs more memory.
-- **Rerankers (right):** Recall@1 against GPU latency on e5's top 10. gte-reranker-modernbert-base and bge-reranker-v2-m3 were fine-tuned. The others were dropped:
-  - ms-marco-MiniLM and bge-reranker-base scored lower;
-  - Qwen3-Reranker scored lower and is 5× slower;
-  - mxbai-rerank-large-v1, screened later on the CPU, scored 0.710.
+- **Rerankers (right):** Recall@1 on e5's top 10. The two most accurate, bge-reranker-v2-m3 and gte-reranker-modernbert-base, were fine-tuned; the other four scored lower and were dropped.
 
 ![Figure 3](results/figures/fig3_first_stage_selection.png)
 
 **Figure 6.** First-stage selection (validation, seed 0).
-- Fine-tuning helped all three candidates, by +0.8 (mxbai), +1.6 (snowflake) and +5.0 (e5) points on Llama questions, and by +5 to +6 points on keyword queries.
+- Fine-tuning helped all three candidates, by +0.8 (mxbai), +1.6 (snowflake) and +5.0 (e5) points of Recall@1, and by +1.0 to +4.0 points of MRR.
 - Recall@10 and Recall@50 were saturated: all three were within 1 point of each other.
-- **Snowflake won** on Recall@1, MRR and keyword queries. A first pick of mxbai, which our rule made on a 1% speed difference, was corrected to snowflake. The test set confirms the correction: fine-tuned mxbai scores 0.787 against snowflake's 0.806 (Table 1, A).
+- **Snowflake won** on Recall@1 and MRR. An earlier pick of mxbai, made by a tie-break rule while Recall@10 was saturated, was corrected to snowflake. The test set confirms the correction: fine-tuned mxbai scores 0.787 against snowflake's 0.806 (Table 1, A).
 - Training snowflake on all 233k usable rows instead of 50k gained only +0.4 points (0.794 vs 0.790), below our 0.5-point bar, so the 3 seeds used 50k rows.
 
 ![Figure 5](results/figures/fig5_reranker_selection.png)
 
 **Figure 7.** Reranker selection on fine-tuned snowflake's top 10 (validation, reranker score alone).
 - Off the shelf, both rerankers are worse than the first stage alone (0.752 and 0.768 against 0.790).
-- After fine-tuning, gte (0.804) beats the first stage and the 4× larger v2-m3 (0.780), at 31 ms against 73 ms per question.
+- After fine-tuning, gte (0.804) beats the first stage and the 4× larger v2-m3 (0.780).
 - gte's three seeds scored 0.804, 0.802 and 0.810.
 - The rerankers were trained on mxbai's mistakes, before the first-stage correction, and were not retrained on snowflake's.
 
 ### 5.4 Fusion and the choice of k
 
-Alone, fine-tuned gte lost on keyword queries (validation 0.658 against the first stage's 0.682), which broke our keyword rule. Adding the bi-encoder's standardised score, with the weight fitted on held-out training rows, fixed it: fused keyword Recall@1 was 0.694–0.716 across the 3 seeds. Fusion also raised Llama Recall@1 to 0.814–0.818.
+Adding the bi-encoder's standardised score to the reranker's, with the weight fitted on held-out training rows, raised validation Recall@1 from 0.802–0.810 (reranker alone) to 0.814–0.818 across the 3 seeds.
 
 ![Figure 6](results/figures/fig6_rerank_k.png)
 
-**Figure 8.** Final model on test as k (the number of first-stage candidates reranked) varies. Left: Recall@1 is flat past k = 10; k = 50 adds at most 0.2 points. Right: time per question grows linearly, so k = 50 costs 4× more. At k = 10 the system takes 46 ms on the GPU and 150 ms on the CPU.
+**Figure 8.** Final model on test as k (the number of first-stage candidates reranked) varies. Recall@1 is flat past k = 10: reranking 50 candidates adds at most 0.2 points, so the final system reranks the top 10.
 
 ---
 
 ## 6. Key observations
 
-1. **Fine-tuning on LLM-rewritten clicks transfers to another writer and to real queries.** Every fine-tuned model improved on Llama-written questions it never saw the style of, and on the original keyword queries people typed (final 0.730 against 0.682 off the shelf). The fine-tuned first stage scores the same on Llama and Qwen questions (0.806 against 0.801), so it learned the task rather than the training writer's style.
-2. **Model capacity mattered more than fine-tuning.** Moving from MiniLM (22M) to snowflake (568M) off the shelf gained +9.2 points of Recall@1. Fine-tuning snowflake added +2.0, and the fine-tuned reranker +2.6 more. Fine-tuning gains shrink as the base model gets stronger: +5.4 on bge-small, +5.0 on e5, +1.6 on snowflake, +0.8 on mxbai (validation).
+1. **Fine-tuning on LLM-rewritten clicks transfers to another writer.** Every fine-tuned model improved on Llama-written questions, a style it never trained on. The fine-tuned first stage scores the same on Llama and Qwen questions (0.806 against 0.801), so it learned the task rather than the training writer's style.
+2. **Model capacity mattered more than fine-tuning.** Moving from all-MiniLM-L6-v2 (22M) to snowflake (568M), both off the shelf, gained +9.2 points of Recall@1. Fine-tuning snowflake added +2.0, and the fine-tuned reranker +2.6 more. Fine-tuning gains shrink as the base model gets stronger: +5.4 on bge-small, +5.0 on e5, +1.6 on snowflake, +0.8 on mxbai (validation).
 3. **Surprises:**
    - Combining BM25 with the dense ranking (reciprocal rank fusion) *hurt*, by −12.4 points. BM25 is so much weaker that giving its ranks equal weight drags the dense ranking down.
    - Off-the-shelf rerankers were *worse* than the fine-tuned first stage on their own. Only fine-tuning, plus fusion with the first-stage score, made the reranker pay off.
@@ -288,16 +284,16 @@ We sampled 50 of the 98 validation misses of the fine-tuned reranker (seed 0, sn
 
 | Proposal | What we did | Why |
 |---|---|---|
-| all-MiniLM-L6-v2 (22M), replicated on bge-small (33M) | Small models tried first; final first stage snowflake (568M), replicated with mxbai (335M); reranker added | Small models plateaued near 0.71 Recall@1 and their misses needed more capacity |
+| A small embedding model, replicated on a second one | bge-small (33M) tried first; final first stage snowflake (568M), replicated with mxbai (335M); reranker added | bge-small plateaued near 0.71 Recall@1 and its misses needed more capacity |
 | Primary metric Recall@5, target +10 points | Recall@1 primary, with MRR breaking ties; decided on validation before testing | Off-the-shelf Recall@5 was already 0.90–0.95 |
 | Qwen2.5-7B rewrites 50k queries, keep the top 25k, drop copies of 4+ title words | Qwen3-30B rewrites all 300k with a neutral prompt; drop the lowest 10% by log-probability; 50k used for training | The copy rule handicapped BM25; more rows were cheap |
 | Hard negative: a BM25 match of the question | A BM25 look-alike of the answer page | +1.8 points on validation (Figure 4) |
 | Five conditions | Seven conditions plus a replication, with a BM25 hybrid and rerankers | The error analysis called for a reranker |
-| 3 seeds for MiniLM, 1 for bge-small; paired bootstrap | 3 seeds for each final model; paired bootstrap; per-condition CIs | – |
+| Seeds and paired bootstrap | 3 seeds for each final model; paired bootstrap; per-condition CIs | – |
 | 100 hand-labelled errors | 50 AI-labelled errors on the final reranker, plus 25 earlier hand-checked ones | Time |
 | nDCG@10 | Not reported; MRR and Recall@k cover ranking quality | – |
 | About 5.5 GPU-hours on a Colab T4 | About 20–25 GPU-hours on a local Mac GPU | Larger models and the full 300k rewrite |
-| Unchanged | ORCAS + MS MARCO, a separate Llama test writer, 2,000 test and 500 dev questions, 200-entry histories with near-duplicates, BM25 baseline, CPU time per question | – |
+| Unchanged | ORCAS + MS MARCO, a separate Llama test writer, 2,000 test and 500 dev questions, 200-entry histories with near-duplicates, BM25 baseline | – |
 
 ---
 

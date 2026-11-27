@@ -88,81 +88,73 @@ def fig_sources():
     s = pd.read_csv(ROOT / "results/test/test_scores.csv")
     s = s.groupby(["source", "condition"])["recall@1"].mean().unstack(0)
     conds = [1, 2, 3, 4, 7]
-    srcs = [("llama", "Llama questions", BLUE), ("qwen", "Qwen questions", ORANGE), ("keyword", "Keyword queries (people)", AQUA)]
+    srcs = [("llama", "Llama questions (test writer)", BLUE), ("qwen", "Qwen questions (training writer)", ORANGE)]
     fig, ax = plt.subplots(figsize=(9, 4))
     x = np.arange(len(conds))
-    w = 0.26
+    w = 0.38
     for i, (src, label, color) in enumerate(srcs):
         vals = s.loc[conds, src].to_numpy()
-        bars = ax.bar(x + (i - 1) * w, vals, w - 0.02, color=color, label=label)
+        bars = ax.bar(x + (i - 0.5) * w, vals, w - 0.03, color=color, label=label)
         for b, v in zip(bars, vals):
-            ax.text(b.get_x() + b.get_width() / 2, v + 0.008, f"{v:.2f}", ha="center", fontsize=8.5, color=INK)
+            ax.text(b.get_x() + b.get_width() / 2, v + 0.008, f"{v:.3f}", ha="center", fontsize=8.5, color=INK)
     ax.set_xticks(x, ["BM25", "MiniLM\noff the shelf", "snowflake\noff the shelf", "snowflake\nfine-tuned", "final\n(+ reranker)"])
-    ax.set_ylim(0.3, 0.97)
+    ax.set_ylim(0.4, 0.95)
     ax.set_ylabel("Test Recall@1 (mean of seeds)")
     ax.grid(axis="x", visible=False)
-    ax.legend(frameon=False, loc="upper left", ncol=3)
-    ax.set_title("Gains hold on all three question sets, including real keyword queries", loc="left", color=INK, fontsize=12)
-    save(fig, "fig2_three_question_sets.png")
+    ax.legend(frameon=False, loc="upper left", ncol=2)
+    ax.set_title("Same ranking of conditions whichever LLM wrote the questions", loc="left", color=INK, fontsize=12)
+    save(fig, "fig2_two_question_writers.png")
 
 
 def fig_first_stage_selection():
     models = [("mxbai-embed-large-v1", "first-stage-mxbai", "mxbai-embed-large-v1\n335M"),
               ("snowflake-arctic-embed-l-v2.0", "first-stage-snowflake", "snowflake-arctic-\nembed-l-v2.0, 568M"),
               ("e5-large-v2", "first-stage-e5", "e5-large-v2\n335M")]
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharey=True)
-    for ax, (suffix, title) in zip(axes, [("", "Llama questions"), ("_keyword", "Keyword queries")]):
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    for ax, (metric, title, lo, hi) in zip(axes, [("recall@1", "Recall@1", 0.65, 0.83), ("mrr", "MRR", 0.75, 0.9)]):
         off, ft = [], []
         for base, exp, _ in models:
             v = json.load(open(EXP / exp / "validation.json"))["validation"]
-            off.append(v[base + suffix]["recall@1"])
-            ft.append(v[f"exp_{exp}{suffix}"]["recall@1"])
+            off.append(v[base][metric])
+            ft.append(v[f"exp_{exp}"][metric])
         x = np.arange(len(models))
         for dx, vals, color, label in [(-0.2, off, "#86b6ef", "off the shelf"), (0.2, ft, BLUE, "fine-tuned (seed 0)")]:
             bars = ax.bar(x + dx, vals, 0.38, color=color, label=label)
             for b, v in zip(bars, vals):
-                ax.text(b.get_x() + b.get_width() / 2, v + 0.006, f"{v:.3f}", ha="center", fontsize=8.5, color=INK)
+                ax.text(b.get_x() + b.get_width() / 2, v + 0.004, f"{v:.3f}", ha="center", fontsize=8.5, color=INK)
         ax.set_xticks(x, [m[2] for m in models], fontsize=9)
         ax.set_title(title, color=INK, fontsize=11)
         ax.grid(axis="x", visible=False)
-        ax.set_ylim(0.5, 0.85)
-    axes[0].set_ylabel("Validation Recall@1 (500 questions)")
+        ax.set_ylim(lo, hi)
+    axes[0].set_ylabel("Validation score (500 Llama questions)")
     axes[1].legend(frameon=False, loc="upper right", fontsize=9)
-    fig.suptitle("First stage: fine-tuning helps all three; snowflake leads on both sets", x=0.02, ha="left", color=INK, fontsize=12)
+    fig.suptitle("First stage: fine-tuning helps all three; snowflake leads on Recall@1 and MRR", x=0.02, ha="left", color=INK, fontsize=12)
     save(fig, "fig3_first_stage_selection.png")
 
 
 def fig_screening():
     # From results/experiments/screening/screening.md (validation, off the shelf, Llama questions).
-    first = [("BM25", 0.522, 0.832), ("all-MiniLM-L6-v2 (22M)", 0.672, 0.952), ("Qwen3-Embedding-0.6B", 0.712, 0.946),
-             ("e5-large-v2 (335M)", 0.730, 0.966), ("bge-base-en-v1.5 (110M)", 0.734, 0.970),
-             ("bge-large-en-v1.5 (335M)", 0.742, 0.968), ("mxbai-embed-large-v1 (335M)", 0.752, 0.978),
-             ("snowflake-arctic-embed-l-v2.0 (568M)", 0.774, 0.972)]
-    rer = [("ms-marco-MiniLM-L6-v2", 0.722, 6), ("bge-reranker-base", 0.684, 22), ("gte-reranker-modernbert-base", 0.754, 30),
-           ("bge-reranker-v2-m3", 0.770, 66), ("Qwen3-Reranker-0.6B", 0.748, 162)]
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), gridspec_kw={"width_ratios": [1.25, 1]})
-    ax = axes[0]
-    y = np.arange(len(first))
-    chosen = {"snowflake-arctic-embed-l-v2.0 (568M)", "mxbai-embed-large-v1 (335M)", "e5-large-v2 (335M)"}
-    ax.barh(y, [f[1] for f in first], color=[BLUE if f[0] in chosen else GRAY for f in first], height=0.62)
-    for yi, f in zip(y, first):
-        ax.text(f[1] + 0.006, yi, f"{f[1]:.3f}", va="center", fontsize=9, color=INK)
-    ax.set_yticks(y, [f[0] for f in first], fontsize=9)
-    ax.set_xlim(0.45, 0.82)
-    ax.set_xlabel("Validation Recall@1, off the shelf")
-    ax.grid(axis="y", visible=False)
-    ax.set_title("First-stage screen (blue = fine-tuned next)", loc="left", color=INK, fontsize=11)
-    ax = axes[1]
-    for name, r1, ms in rer:
-        c = BLUE if name in ("gte-reranker-modernbert-base", "bge-reranker-v2-m3") else GRAY
-        ax.scatter(ms, r1, s=70, color=c, edgecolor="white", linewidth=2, zorder=3)
-        ax.annotate(name, (ms, r1), textcoords="offset points", xytext=(6, 5), fontsize=8.5, color=INK)
-    ax.set_xscale("log")
-    ax.set_xlabel("GPU ms per question at k = 10 (log scale)")
-    ax.set_ylabel("Validation Recall@1, reranker alone")
-    ax.set_xlim(4, 600)
-    ax.set_ylim(0.67, 0.79)
-    ax.set_title("Reranker screen on e5's top 10", loc="left", color=INK, fontsize=11)
+    first = [("BM25", 0.522), ("all-MiniLM-L6-v2 (22M)", 0.672), ("Qwen3-Embedding-0.6B", 0.712),
+             ("e5-large-v2 (335M)", 0.730), ("bge-base-en-v1.5 (110M)", 0.734),
+             ("bge-large-en-v1.5 (335M)", 0.742), ("mxbai-embed-large-v1 (335M)", 0.752),
+             ("snowflake-arctic-embed-l-v2.0 (568M)", 0.774)]
+    rer = [("bge-reranker-base", 0.684), ("mxbai-rerank-large-v1", 0.710), ("ms-marco-MiniLM-L6-v2", 0.722),
+           ("Qwen3-Reranker-0.6B", 0.748), ("gte-reranker-modernbert-base", 0.754), ("bge-reranker-v2-m3", 0.770)]
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4.2), gridspec_kw={"width_ratios": [1.2, 1], "wspace": 0.75})
+    for ax, rows, chosen, title in [
+        (axes[0], first, {"snowflake-arctic-embed-l-v2.0 (568M)", "mxbai-embed-large-v1 (335M)", "e5-large-v2 (335M)"},
+         "First-stage screen (blue = fine-tuned next)"),
+        (axes[1], rer, {"gte-reranker-modernbert-base", "bge-reranker-v2-m3"}, "Reranker screen on e5's top 10")]:
+        y = np.arange(len(rows))
+        ax.barh(y, [r[1] for r in rows], color=[BLUE if r[0] in chosen else GRAY for r in rows], height=0.62)
+        for yi, r in zip(y, rows):
+            ax.text(r[1] + 0.004, yi, f"{r[1]:.3f}", va="center", fontsize=9, color=INK)
+        ax.set_yticks(y, [r[0] for r in rows], fontsize=9)
+        ax.set_xlabel("Validation Recall@1, off the shelf")
+        ax.grid(axis="y", visible=False)
+        ax.set_title(title, loc="left", color=INK, fontsize=11)
+    axes[0].set_xlim(0.45, 0.82)
+    axes[1].set_xlim(0.6, 0.8)
     save(fig, "fig4_screening.png")
 
 
@@ -185,32 +177,21 @@ def fig_reranker_selection():
     ax.set_ylabel("Validation Recall@1, top 10\n(reranker score alone)")
     ax.grid(axis="x", visible=False)
     ax.legend(frameon=False, loc="upper right", fontsize=9)
-    ax.set_title("Fine-tuned gte beats the larger v2-m3 at half the latency (31 vs 73 ms)", loc="left", color=INK, fontsize=12)
+    ax.set_title("Fine-tuned gte beats the 4x larger v2-m3", loc="left", color=INK, fontsize=12)
     save(fig, "fig5_reranker_selection.png")
 
 
 def fig_rerank_k():
     k = pd.read_csv(ROOT / "results/test/rerank_k.csv")
     k = k[(k.condition == 7) & (k.kind == "fused")].groupby("k")["recall@1"].mean()
-    sp = pd.read_csv(ROOT / "results/test/speed.csv")
-    sp = sp[(sp.condition == 7) & sp.k.notna()]
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
-    ax = axes[0]
+    fig, ax = plt.subplots(figsize=(6.5, 3.6))
     ax.plot(k.index, k.values, color=BLUE, lw=2, marker="o", ms=6)
     ax.axhline(0.806, color=GRAY, lw=1.5, ls="--")
     ax.text(50, 0.8065, "first stage alone", ha="right", va="bottom", fontsize=9, color=INK2)
     ax.set_ylim(0.795, 0.84)
     ax.set_xlabel("k (first-stage candidates reranked)")
     ax.set_ylabel("Test Recall@1, final model")
-    ax.set_title("Accuracy is flat past k = 10", loc="left", color=INK, fontsize=11)
-    ax = axes[1]
-    for dev, color, label in [("mps", BLUE, "Apple GPU (MPS)"), ("cpu", ORANGE, "CPU, 6 threads")]:
-        d = sp[sp.device == dev].sort_values("k")
-        ax.plot(d.k, d.question_ms, color=color, lw=2, marker="o", ms=6, label=label)
-    ax.set_xlabel("k")
-    ax.set_ylabel("ms per question")
-    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0, 0.92))
-    ax.set_title("…while latency grows linearly", loc="left", color=INK, fontsize=11)
+    ax.set_title("Reranking more than the top 10 adds almost nothing", loc="left", color=INK, fontsize=11)
     save(fig, "fig6_rerank_k.png")
 
 
