@@ -86,7 +86,13 @@ Two parts, in order. Part 2 starts only when Part 1's report is final.
   - Integration (step 1) is built against the known first stage (mxbai). The reranker winner is plugged in when it is picked.
   - Option 1 (features as text) is trained first. Option 2 (features as data) trains overnight. If Option 2 is not ready by Friday midday, Option 1 ships and the report says Option 2 is pending.
   - Real training uses re-finding events only. Side-panel clicks are added later, because they need weeks of use.
-  - The Claude comparison is skipped for now, in both parts.
+  - **Claude comparison (Part 2 only; Part 1's step 5 stays deferred).** It shows whether the trained app beats a plain API call.
+    - Each Llama test question goes to `claude-opus-5-5` with the whole synthetic history (id, visit time, title, URL, search query) and the question's "now".
+    - Claude returns its top 5 entry ids. They are scored by the same Recall@1, Recall@5, date accuracy and no-answer rate per type, next to the app and stock all-MiniLM.
+    - The history is a fixed system-prompt prefix with prompt caching (1-hour TTL); the question comes after it. Calls are sequential.
+    - The key is SOPS-encrypted in `~/dotfiles/secrets/anthropic.env`, and the script runs with `with-secrets`.
+    - Only the synthetic history is sent, never the user's real history.
+    - The README and the results note report the app against Claude, with latency and cost per question.
   - **No user input.** Everything runs autonomously, and no step waits for the owner. The dev and test questions are generated, not hand-written.
   - **Question mix (training and evaluation):** generated from the user's real history, with labelled types, so results are reported for each type, not only overall.
     - Topic only, no constraint: "the ramen recipe I looked at".
