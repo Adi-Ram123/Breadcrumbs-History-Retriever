@@ -2,7 +2,7 @@
 
 Part 1 of [`PLAN.md`](../PLAN.md): which retriever returns the page a person means when they ask about their browsing history in their own words. Each test question ranks its own 200-page history: the answer, 100 BM25 look-alikes of it and 99 random pages. The test set was scored once, after every model choice had been made on validation.
 
-**Result.** The final model, fine-tuned snowflake-arctic-embed-l-v2.0 with a fine-tuned gte-reranker-modernbert-base fused over its top 10, puts the answer first for **83.2%** of the 2,000 Llama test questions (± 0.4 over 3 seeds). That is 27.1 points above BM25, 13.8 above all-MiniLM-L6-v2 (the app's current embedder) and 4.6 above snowflake off the shelf. All three gains hold on the Qwen questions and the keyword queries, and every 95% bootstrap interval excludes zero. Fine-tuning the first stage adds 2.0 points (Llama) to 4.6 (Qwen), and the reranker adds 2.6 more on top. The first stage has the answer in its top 10 for 98.0% of questions and in its top 50 for 99.7%. On a laptop GPU the final model takes about 46 ms per question at k = 10, and 150 ms on the CPU.
+**Result.** The final model, fine-tuned snowflake-arctic-embed-l-v2.0 with a fine-tuned gte-reranker-modernbert-base fused over its top 10, puts the answer first for **83.2%** of the 2,000 Llama test questions (± 0.4 over 3 seeds). That is 27.1 points above BM25, 13.8 above all-MiniLM-L6-v2 and 4.6 above snowflake off the shelf. All three gains hold on the Qwen questions and the keyword queries, and every 95% bootstrap interval excludes zero. Fine-tuning the first stage adds 2.0 points (Llama) to 4.6 (Qwen), and the reranker adds 2.6 more on top. The first stage has the answer in its top 10 for 98.0% of questions and in its top 50 for 99.7%. On a laptop GPU the final model takes about 46 ms per question at k = 10, and 150 ms on the CPU.
 
 ## Test results (2,000 questions per set)
 
@@ -101,12 +101,12 @@ The reranker reorders the first stage's top k; pages below k keep their first-st
 
 ![Recall@1 against k](test/rerank_k.png)
 
-- k = 10, the app's k, is already on the plateau: k = 50 adds at most 0.2 points and costs 4× the time. Part 2 can keep the first stage's k large for recall (Recall@50 0.997) and rerank only the top 10.
+- k = 10, the final model's k, is already on the plateau: k = 50 adds at most 0.2 points and costs 4× the time.
 - Fusion matters most for the off-the-shelf reranker. Alone, it gets worse as k grows (0.786 → 0.770), because it promotes look-alike pages the first stage had rightly ranked low.
 
 ### Time per question
 
-One question at a time, as in the app, from the question text to the ranked 200-entry history. Entry vectors are computed beforehand: an app embeds each entry once, and that cost is the ms-per-entry column. GPU is the Mac's GPU (MPS), with 100 questions per condition; CPU uses 30. Conditions 3 and 4, and 6 and 7, share an architecture, so the fine-tuned seed-0 models were timed. BM25 runs on the CPU only and scores the whole 300k-entry index for each question. For tiny models such as MiniLM the single-question GPU dispatch costs more than the compute, so the CPU is faster.
+One question at a time, from the question text to the ranked 200-entry history. Entry vectors are computed beforehand, since each entry is embedded once, and that cost is the ms-per-entry column. GPU is the Mac's GPU (MPS), with 100 questions per condition; CPU uses 30. Conditions 3 and 4, and 6 and 7, share an architecture, so the fine-tuned seed-0 models were timed. BM25 runs on the CPU only and scores the whole 300k-entry index for each question. For tiny models such as MiniLM the single-question GPU dispatch costs more than the compute, so the CPU is faster.
 
 | # | GPU ms per question | CPU ms per question | GPU ms per entry | CPU ms per entry |
 | --- | --- | --- | --- | --- |
@@ -140,7 +140,6 @@ WEIGHTS 50000 1293 False
 - **Reranker candidates.** The rerankers were fine-tuned on mxbai-embed-large-v1's top-k mistakes, because the first stage changed to snowflake after they had trained. They were scored on snowflake's top k without retraining, as the reranker selection did. Retraining on snowflake's mistakes might gain a little more.
 - **Sequence length.** Every bi-encoder, including MiniLM and snowflake off the shelf, encodes at 64 tokens, the fine-tuning length. The reranker uses 128 tokens for question and entry together.
 - **Seeds.** Reranker seed s is paired with first-stage seed s, so condition 7's spread includes both stages' seed variance.
-- **Not scored:** condition 8 (Claude ranking the whole history) is deferred, as PLAN.md now schedules.
 - Larger reranker experiments from the earlier rounds (MiniLM-L12, Qwen3-Reranker-0.6B and 4B) did not improve results and are not in the tables.
 
 ## Model selection (validation)
@@ -151,7 +150,7 @@ snowflake-arctic-embed-l-v2.0, fine-tuned on 50k rows. Recall@10 and Recall@50 w
 
 ### Reranker (validation, 500 questions per set, Recall@1)
 
-Fine-tuned as sentence-transformers CrossEncoders on 50k rows from mxbai-embed-large-v1's top k (20k for bge-reranker-v2-m3, as planned). mxbai-rerank-large-v1 was screened off the shelf (0.710 at k = 10 on e5's top k) and dropped from training by the coordinator. App k = 10.
+Fine-tuned as sentence-transformers CrossEncoders on 50k rows from mxbai-embed-large-v1's top k (20k for bge-reranker-v2-m3, as planned). mxbai-rerank-large-v1 was screened off the shelf (0.710 at k = 10 on e5's top k) and dropped from training. Final k = 10.
 
 Selection on mxbai's top k (first stage alone 0.760, keyword 0.656):
 
